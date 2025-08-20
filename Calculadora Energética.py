@@ -1,10 +1,10 @@
 # Librerías
 import math
-import time as sleep
 import matplotlib.pyplot as plt
+
 plt.figure("Comparación de ingresos", figsize=(15, 8))
 
-# Clase FuenteEnergia con atributos
+# --------------------------- Clase FuenteEnergia con atributos -----------------------------------#
 
 class FuenteEnergia:
     def __init__(self, nombre, tconst, toperativo, emisiones, cconst, beneficio):
@@ -23,20 +23,21 @@ class FuenteEnergia:
         self.ling = [] # Lista de valores de ingreso
         self.lt = [] # Lista de valores de tiempo
 
-        # Función LCOE 
 
-        self.lcoe = float(self.cconst * self.tconst + self.beneficio * self.toperativo) / (self.tconst + self.toperativo)                                   
-                                    # Ingreso neto (ingresos menos gastos)                   # Tiempo total
-
-
-# FUENTE ENERGÍA: VARIABLES. El usuario puede modificar los valores.
+#---------------------------------- FUENTE ENERGÍA: VARIABLES. El usuario puede modificar los valores. ----------------------------------#
 
 # Variables universales: 
 
 ingorigen = 0 # Ingresos, cambiar para tener una inversión inicial
 potenciaCentral = 500 # Potencia de la central en MW
+potenciaTermica = 1000 # Potencia solar en MW/m^2
+c = 2.99792*(10**8) # Velocidad de la luz
 
-# Variables generales:
+# Variables de cálculo
+areaFoto = potenciaCentral / potenciaTermica
+resnucleares = potenciaCentral * c ** -2
+
+# Variables específicas de cada fuente de energía:
 
 nuclear = FuenteEnergia(
     nombre='Nuclear',
@@ -44,7 +45,7 @@ nuclear = FuenteEnergia(
     cconst = -6,  
     beneficio = 10,
     toperativo= 40, 
-    emisiones = 1
+    emisiones = 1,
 )
 
 solar = FuenteEnergia(
@@ -53,20 +54,60 @@ solar = FuenteEnergia(
     cconst = -4,
     beneficio = 2,
     toperativo = 25,
-    emisiones = 0.1
+    emisiones = 0.1,
 )
 
-# Ploteando gráficos
+termica = FuenteEnergia(
+    nombre='Térmica',
+    tconst = 5,
+    cconst = -4,
+    beneficio = 2,
+    toperativo = 25,
+    emisiones = 0.1,
+)
+
+fosil = FuenteEnergia(
+    nombre='Fósil',
+    tconst = 2,
+    cconst = -7,
+    beneficio = 1,
+    toperativo = 25,
+    emisiones = 10,
+)
+
+hidro = FuenteEnergia(
+    nombre='Hidráulica',
+    tconst = 5,
+    cconst = -4,
+    beneficio = 2,
+    toperativo = 25,
+    emisiones = 0.1,
+)
+
+#-----------------------------------------------------------------FUNCIONES-------------------------------------------------------------#
+
+# Función LCOE 
+def lcoe(self):
+    self.lcoe = float(self.cconst * self.tconst + self.beneficio * self.toperativo) / (self.tconst + self.toperativo)                                   
+                                    # Ingreso neto (ingresos menos gastos)                   # Tiempo total
+
+# Función de cálculo de variables concretas
+
+def recalcular():
+    areaFoto == potenciaCentral / potenciaTermica # Área en m^2
+    resnucleares == potenciaCentral * c **-2 # Residuos en kg
+
+# Función de ploteo de gráficos
 
 def plot(ingorigen, potenciaCentral): 
 
-    for fuente in [nuclear, solar]:  # Lista de fuentes de energía. Es necesario actualizarla.
+    for fuente in [nuclear, solar, termica, fosil, hidro]:  # Lista de fuentes de energía. Es necesario actualizarla.
 
         # Reset de variables
 
         t = 0
         ing = ingorigen
-        fuente.ling = []
+        fuente.ling = []    
         fuente.lt = []
         
         # Tiempo 0 a final.
@@ -80,15 +121,15 @@ def plot(ingorigen, potenciaCentral):
             fuente.ling.append(ing)
             fuente.lt.append(t)
 
-    plt.plot(fuente.lt, fuente.ling, label=fuente.nombre)
-    plt.xlabel('Años')
-    plt.ylabel('Ingresos acumulados (Euro)')
-    plt.title('Ingresos acumulados de las centrales')
-    plt.grid()
-    plt.legend()
+        plt.plot(fuente.lt, fuente.ling, label=fuente.nombre)
+        plt.xlabel('Años')
+        plt.ylabel('Ingresos acumulados (Euro)')
+        plt.title('Ingresos acumulados de las centrales')
+        plt.grid()
+        plt.legend()
     plt.show()
 
-# Interfaz
+#-----------------------------------------------------------------INTERFAZ-------------------------------------------------------------#
 
     # Título
 
