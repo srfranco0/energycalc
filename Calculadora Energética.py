@@ -1,7 +1,13 @@
 # Librerías
-import math
+import sys
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as VistaGrafico
+from matplotlib.figure import Figure
+
 # PyQt5
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout
+from PyQt5.QtCore import Qt
+from PyQt5 import QtGui
 
 # --------------------------- Clase FuenteEnergia con atributos -----------------------------------#
 
@@ -25,27 +31,120 @@ class FuenteEnergia:
 
         self.ling = [] # Lista de valores de ingreso
         self.lt = [] # Lista de valores de tiempo
-
-
-#---------------------------------- FUENTE ENERGÍA: VARIABLES. El usuario puede modificar los valores. ----------------------------------#
-
+            
 # Variables universales: 
 
-ingorigen = 0 # Ingresos, cambiar para tener una inversión inicial
-potenciaCentral = 500 # Potencia de la central en MW
-potenciaTermica = 1000 # Potencia solar en MW/m^2
-c = 2.99792*(10**8) # Velocidad de la luz
+    ingorigen = 0 # Ingresos, cambiar para tener una inversión inicial
+    potenciaCentral = 500 # Potencia de la central en MW
+    potenciaTermica = 1000 # Potencia solar en MW/m^2
+    c = 2.99792*(10**8) # Velocidad de la luz
 
 # Variables de cálculo
-areaFoto = potenciaCentral / potenciaTermica
-resnucleares = potenciaCentral * c ** -2
+    areaFoto = potenciaCentral / potenciaTermica
+    resnucleares = potenciaCentral * c ** -2
 # Dimensiones embalse !!!CALCULAR!!!
+
+
+#-----------------------------------------------------------------FUNCIONES-------------------------------------------------------------#
+
+# Función LCOE 
+
+    def lcoe(self):
+        lcoe = (self.cconst * self.tconst + self.beneficio * self.toperativo) / (self.tconst + self.toperativo)                               
+                            # Ingreso neto (ingresos menos gastos)                      # Tiempo total
+        return round(lcoe, 3)
+
+    # Función de ploteo de gráficos
+
+    def plot(self):
+        for t in range(1, self.tconst + self.toperativo):
+            if t < self.tconst:
+                ing += self.cconst * self.potenciaCentral # Pérdida de construcción.
+            elif t == self.tconst:
+                ing += self.cconst * self.potenciaCentral
+                plt.text(t, 
+                ing, str(ing) + " €", va = "bottom", ha = "center", fontstyle = "italic") # Texto de pérdida máxima
+            else:
+                ing += self.beneficio * self.potenciaCentral # menos costos!!!!!!! # Beneficio operativo.
+            self.ling.append(ing)
+            self.lt.append(t)
+
+        plt.plot(self.lt, self.ling, label=self.nombre)
+        plt.xlabel('Años')
+        plt.ylabel('Ingresos acumulados (Euro)')
+        plt.title('Ingresos acumulados de las centrales')
+        plt.grid()
+        plt.xlim(0, max(nuclear.tconst + nuclear.toperativo, solar.tconst + solar.toperativo, termica.tconst + termica.toperativo, hidro.tconst + hidro.toperativo) + 1)
+        plt.legend()
+        return plt
+
+
+    def plotlcoe(self):
+        plt.figure("LCOE calculado de fuentes energéticas", figsize=(15, 8)) # Tamaño y título
+
+        for fuente in [nuclear, solar, termica, hidro]:  # !!!ACTUALIZAR!!!
+            plt.bar(fuente.nombre, self.lcoe, label=fuente.nombre)
+
+            plt.text(
+                fuente.nombre,  # x
+                self.lcoe,   # y
+                str(self.lcoe),  # texto
+                ha="center", va="bottom",
+                fontweight = "bold"
+            )
+
+        plt.xlabel('Fuente de energía')
+        plt.ylabel('LCOE (Euro/MWh)')
+        plt.title('LCOE de las fuentes de energía')
+        plt.legend()
+        plt.show()
+
+    def emisiones(self):
+        plt.bar(self.nombre, self.emisiones, label=self.nombre)
+
+    def plotemisiones():    
+        plt.figure("Emisiones de CO2 de las fuentes de energía", figsize=(15, 8)) # Tamaño y título
+
+        for fuente in [nuclear, solar, termica, hidro]:  # !!!ACTUALIZAR!!!
+            plt.bar(fuente.nombre, fuente.emisiones, label=fuente.nombre)
+
+            plt.text(
+                fuente.nombre,  # x
+                fuente.emisiones,   # y
+                str(fuente.emisiones),  # texto
+                ha="center", va="bottom",
+                fontweight = "bold"            
+            )
+
+            plt.text(
+                fuente.nombre,
+                fuente.emisiones/2,
+                "Emisiones totales", 
+                ha="center", va="bottom",
+            )
+
+            plt.text(
+                fuente.nombre,
+                (fuente.emisiones/2) - fuente.emisiones * 0.5,
+                str(fuente.emisiones * potenciaCentral * 0.001 * fuente.toperativo) + " kg CO2", 
+                ha="center", va="bottom",
+                fontweight = "bold",
+                color = "white"
+            )
+
+        plt.xlabel('Fuente de energía')
+        plt.ylabel('Emisiones de CO2 por año (g/MWh)')
+        plt.title('CO2 emitido por las fuentes de energía')
+        plt.legend()
+        plt.show()
+
+#---------------------------------- FUENTE ENERGÍA: VARIABLES. El usuario puede modificar los valores. ----------------------------------#
 
 # Variables específicas de cada fuente de energía:
 
 nuclear = FuenteEnergia(
     nombre='Nuclear',
-    tconst = 15, 
+    tconst = 10, 
     cconst = -6,  
     beneficio = 10,
     toperativo= 40, 
@@ -66,7 +165,7 @@ termica = FuenteEnergia(
     tconst = 5,
     cconst = -10,
     beneficio = 5,
-    toperativo = 10,
+    toperativo = 15,
     emisiones = 10,
 )
 
@@ -78,128 +177,45 @@ hidro = FuenteEnergia(
     toperativo = 60,
     emisiones = 1,
 )
-
-#-----------------------------------------------------------------FUNCIONES-------------------------------------------------------------#
-
-# Función LCOE 
-def lcoe(self):
-    lcoe = (self.cconst * self.tconst + self.beneficio * self.toperativo) / (self.tconst + self.toperativo)                               
-                        # Ingreso neto (ingresos menos gastos)                      # Tiempo total
-    return round(lcoe, 3)
-
-# Función de cálculo de variables concretas
-
-def recalcular():
-    areaFoto == potenciaCentral / potenciaTermica # Área en m^2
-    resnucleares == potenciaCentral * c **-2 # Residuos en kg
-
-# Función de ploteo de gráficos
-
-def plotall(): 
-
-    plt.figure("Comparación de ingresos", figsize=(15, 8)) # Tamaño y título
-
-    for fuente in [nuclear, solar, termica, hidro]:  # !!!ACTUALIZAR!!!
-
-        # Reset de variables
-        t = 0
-        ing = ingorigen
-        fuente.ling = []    
-        fuente.lt = []
-        fuente.ling.append(t)
-        fuente.lt.append(ing)
-
-        # Tiempo 0 a final.
-        for t in range(1, fuente.tconst + fuente.toperativo):
-            if t < fuente.tconst:
-                ing += fuente.cconst * potenciaCentral # Pérdida de construcción.
-
-            elif t == fuente.tconst:
-                ing += fuente.cconst * potenciaCentral
-                plt.text(t, 
-                ing, str(ing) + " €", va = "bottom", ha = "center", fontstyle = "italic") # Texto de pérdida máxima
-
-            else:
-                ing += fuente.beneficio * potenciaCentral # menos costos!!!!!!! # Beneficio operativo.
-                
-            fuente.ling.append(ing)
-            fuente.lt.append(t)
-
-        # Formato
-        plt.xlabel('Años')
-        plt.ylabel('Ingresos acumulados (Euro)')
-        plt.title('Ingresos acumulados de las centrales')
-        plt.grid()
-        plt.plot(fuente.lt, fuente.ling, label=fuente.nombre)
-        plt.xlim(0, max(nuclear.tconst + nuclear.toperativo, solar.tconst + solar.toperativo, termica.tconst + termica.toperativo, hidro.tconst + hidro.toperativo) + 1)
-        plt.legend()
-    plt.show()
-
-def plotlcoe():
-    plt.figure("LCOE calculado de fuentes energéticas", figsize=(15, 8)) # Tamaño y título
-
-    for fuente in [nuclear, solar, termica, hidro]:  # !!!ACTUALIZAR!!!
-        plt.bar(fuente.nombre, lcoe(fuente), label=fuente.nombre)
-        
-        plt.text(
-            fuente.nombre,  # x
-            lcoe(fuente),   # y
-            str(lcoe(fuente)),  # texto
-            ha="center", va="bottom",
-            fontweight = "bold"
-        )
-    
-    plt.xlabel('Fuente de energía')
-    plt.ylabel('LCOE (Euro/MWh)')
-    plt.title('LCOE de las fuentes de energía')
-    plt.legend()
-    plt.show()
-
-def plotemisiones():    
-    plt.figure("Emisiones de CO2 de las fuentes de energía", figsize=(15, 8)) # Tamaño y título
-
-    for fuente in [nuclear, solar, termica, hidro]:  # !!!ACTUALIZAR!!!
-        plt.bar(fuente.nombre, fuente.emisiones, label=fuente.nombre)
-        
-        plt.text(
-            fuente.nombre,  # x
-            fuente.emisiones,   # y
-            str(fuente.emisiones),  # texto
-            ha="center", va="bottom",
-            fontweight = "bold"            
-        )
-    
-        plt.text(
-            fuente.nombre,
-            fuente.emisiones/2,
-            "Emisiones totales", 
-            ha="center", va="bottom",
-        )
-
-        plt.text(
-            fuente.nombre,
-            (fuente.emisiones/2) - fuente.emisiones * 0.5,
-            str(fuente.emisiones * potenciaCentral * 0.001 * fuente.toperativo) + " kg CO2", 
-            ha="center", va="bottom",
-            fontweight = "bold",
-            color = "white"
-        )
-
-    plt.xlabel('Fuente de energía')
-    plt.ylabel('Emisiones de CO2 por año (g/MWh)')
-    plt.title('CO2 emitido por las fuentes de energía')
-    plt.legend()
-    plt.show()
-
-
-plotall()
-plotemisiones()
-plotlcoe()
+eolica = FuenteEnergia(
+    nombre='Eólica',
+    tconst = 5,
+    cconst = -4,
+    beneficio = 3,
+    toperativo = 25,
+    emisiones = 3,
+)
 
 #-----------------------------------------------------------------INTERFAZ-------------------------------------------------------------#
 
-    # Título
+class Ventana(QMainWindow): #Ventana principal
 
-    # Gráfico
+    def __init__(self):
+        super().__init__() # La ventana se inicializa llamando a la clase padre (QMainWindow)
 
-    # Texto
+        self.setWindowTitle("Calculadora Energética | El pasado, presente y futuro de la energía nuclear. Hecho por Franco Baldassarre.") 
+        # self.setWindowIcon(QtGui.QIcon()) !!ICONO!!
+        self.showMaximized()
+
+    def interfaz(self): # Contenedor
+        contenedor = QWidget()
+        self.setCentralWidget(contenedor)
+
+        contenedorizquierdo = QVBoxLayout()
+        contenedorizquierdo.setGeometry(0,0, QMainWindow.width/2, QMainWindow.height)
+
+        #contenedorsubgrafico = QHBoxLayout()
+        #contenedorsubgrafico.setGeometry()
+        
+        #contenedorgrafico = QVBoxLayout()
+        #grafico = Figure(nuclear.plot())
+        #contenedorgrafico.addWidget(grafico)
+
+def inicio():
+    app = QApplication(sys.argv)
+    ventana = Ventana()
+    ventana.show()
+    sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    inicio() # Ejecutar la interfaz cuando el nombre es el principal
