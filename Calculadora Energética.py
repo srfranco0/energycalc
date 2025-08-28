@@ -140,7 +140,13 @@ def plotlcoe():
     plt.title('LCOE de las fuentes de energía')
     plt.legend()
     
-    return plt.figure("LCOE calculado de fuentes energéticas")
+    return plt.figure("LCOE comparado de fuentes energéticas")
+
+def plotingresos():
+    for fuente in listafuentes:
+        fuente.ingresos()
+    plt.legend()
+    return plt.figure("Ingresos a lo largo de los años")
 
 #---------------------------------- FUENTE ENERGÍA: VARIABLES. El usuario puede modificar los valores. ----------------------------------#
 
@@ -203,30 +209,59 @@ class Ventana(QMainWindow): #Ventana principal
         self.interfaz()
         self.showMaximized()
 
-    def interfaz(self):  # Contenedor
+    def interfaz(self):  # Contenedor genérico
         contenedor = QWidget()
         self.setCentralWidget(contenedor)
         layout = QGridLayout()
         contenedor.setLayout(layout)
-
-        ploteo = plt.figure(figsize=(8, 4))
-
+        
 # Gráfico mostrado en la interfaz
-
-        for fuente in listafuentes:
-            fuente.ingresos()
+        ploteo = plt.figure(figsize=(8, 4))
+        plotingresos() # !! AÑADIR INTERACTIBILIDAD !!
         grafico = VistaGrafico(ploteo)
+    
+# CONTENEDOR DERECHO
+        contder = QWidget()
+        layder = QVBoxLayout()
 
-# Texto
+        # Contenido
+        layder.addWidget(grafico)
+        desplegableder = QLabel("Placeholder desplegable")
+        layder.addWidget(desplegableder)
 
-        label1 = QLabel("Calculadora energética")
-        label1.setGeometry(200, 100, 200, 100)
+# CONTENEDOR IZQUIERDO
+        contizq = QWidget()
+        layizq = QVBoxLayout()
 
-#Añadir gráfico al layout
+        # Contenido
+        desplegableizq = QLabel("Placeholder desplegable")
+        listapropiedades = QLabel("Placeholder propiedades.")
 
-        layout.addWidget(label1, 0, 0) # Izquierda
-        layout.addWidget(grafico, 0, 1, 100, 200) # Derecha
+            # Contenedor de la consola para interacción
+        continput = QWidget() 
+        layinput = QHBoxLayout()
+        continput.setLayout(layinput)
+        self.textinput = QLineEdit()
+        self.botoninput = QPushButton("Enviar", self) 
+        self.botoninput.setFixedWidth(100)
+        layinput.addWidget(self.textinput)
+        layinput.addWidget(self.botoninput)
+        layizq.addWidget(desplegableizq)
+        layizq.addWidget(listapropiedades)
+        layizq.addWidget(continput)
+    
+        contder.setLayout(layder)
+        contizq.setLayout(layizq)
 
+#Contenedores izquierdo y derecho
+        layout.addWidget(contizq, 0, 0)
+        layout.addWidget(contder, 0, 1)
+        
+        self.botoninput.clicked.connect(self.enviar) # Conectar el boton a la función enviar
+
+    def enviar(self):
+        texto = self.textinput.text() # Formato tiene que ser numérico con decimales de punto.
+        print(float(texto))
 
 def inicio():
     app = QApplication(sys.argv)
