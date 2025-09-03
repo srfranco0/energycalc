@@ -2,7 +2,6 @@
 import sys
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as VistaGrafico
-from matplotlib.figure import Figure
 
 # PyQt5
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QGridLayout
@@ -31,7 +30,7 @@ class FuenteEnergia:
 
         self.ling = [] # Lista de valores de ingreso
         self.lt = [] # Lista de valores de tiempo
-            
+  
 # Variables universales: 
 
     ingorigen = 0 # Ingresos, cambiar para tener una inversión inicial
@@ -56,7 +55,7 @@ class FuenteEnergia:
                             # Ingreso neto (ingresos menos gastos)                      # Tiempo total
 
         return round(lcoe, 3)
-
+    
     # Función de ploteo de gráficos
 
     def ingresos(self):
@@ -84,25 +83,23 @@ class FuenteEnergia:
     
     # Función de cálculo de emisiones totales.
 
-    def emisiones(self):
-        return str(self.emisiones * self.potenciaCentral * 0.001 * self.toperativo) + " kg CO2"
+    def emisionestotales(self):
+        return str(self.emisiones * self.potenciaCentral * 0.001 * self.toperativo) + " kg CO2" # !!!!!SUMAR CO2 EN CONSTRUCCION!!!!! 
     
-
-
 # Funciones de ploteo comparativo.
-
-    # Función de emisiones.
+    # Emisiones.
 def plotemisiones():
     for fuente in listafuentes:
         plt.bar(fuente.nombre, fuente.emisiones, label=fuente.nombre)
         # Formato
         plt.text(
         fuente.nombre,
-        (fuente.emisiones/2) - fuente.emisiones * 0.5,
-        str(fuente.emisiones), 
+        0,
+        str(fuente.emisionestotales()), 
         ha="center", va="bottom",
         fontweight = "bold",
-        color = "white"
+        color = "white",
+        size = 10
             )
         plt.text(
             fuente.nombre,  # x
@@ -123,8 +120,7 @@ def plotemisiones():
         plt.legend()
     return plt.figure("Emisiones de CO2 de las fuentes energéticas")
 
-    # Función de ploteo de LCOE.
-
+    # LCOE.
 def plotlcoe():
     for fuente in listafuentes:
         plt.bar(fuente.nombre, fuente.lcoe(), label=fuente.nombre)
@@ -142,6 +138,7 @@ def plotlcoe():
     
     return plt.figure("LCOE comparado de fuentes energéticas")
 
+    # Ingresos.
 def plotingresos():
     for fuente in listafuentes:
         fuente.ingresos()
@@ -207,7 +204,6 @@ class Ventana(QMainWindow): #Ventana principal
         self.setWindowTitle("Calculadora Energética | El pasado, presente y futuro de la energía nuclear. Hecho por Franco Baldassarre.") 
         # self.setWindowIcon(QtGui.QIcon()) !!ICONO!!
         self.interfaz()
-        self.showMaximized()
 
     def interfaz(self):  # Contenedor genérico
         contenedor = QWidget()
@@ -216,17 +212,19 @@ class Ventana(QMainWindow): #Ventana principal
         contenedor.setLayout(layout)
         
 # Gráfico mostrado en la interfaz
-        ploteo = plt.figure(figsize=(8, 4))
+        ploteo = plt.figure(figsize=(12, 8))
         plotingresos() # !! AÑADIR INTERACTIBILIDAD !!
         grafico = VistaGrafico(ploteo)
     
 # CONTENEDOR DERECHO
         contder = QWidget()
+        contder.setFixedWidth(1500)
         layder = QVBoxLayout()
 
         # Contenido
         layder.addWidget(grafico)
         desplegableder = QLabel("Placeholder desplegable")
+        desplegableder.setFixedHeight(30)
         layder.addWidget(desplegableder)
 
 # CONTENEDOR IZQUIERDO
@@ -235,7 +233,19 @@ class Ventana(QMainWindow): #Ventana principal
 
         # Contenido
         desplegableizq = QLabel("Placeholder desplegable")
-        listapropiedades = QLabel("Placeholder propiedades.")
+        laypropiedades = QVBoxLayout()
+        
+        for fuente in listafuentes:
+            for key, value in fuente.__dict__.items():
+                if key not in ("lt", "ling"):  # Excluir esas claves
+                    if key == "nombre":
+                        label = QLabel(value)
+                    else:
+                        label = QPushButton(f"{key}: {value}")
+                laypropiedades.addWidget(label)
+        
+        listapropiedades = QWidget()
+        listapropiedades.setLayout(laypropiedades)
 
             # Contenedor de la consola para interacción
         continput = QWidget() 
