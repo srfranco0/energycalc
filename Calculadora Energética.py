@@ -6,7 +6,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as VistaGrafico
 # PyQt5
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QGridLayout
 from PyQt5.QtCore import Qt
-from PyQt5 import QtGui
+from PyQt5.QtGui import QFont
 
 # --------------------------- Clase FuenteEnergia con atributos -----------------------------------#
 
@@ -87,7 +87,7 @@ class FuenteEnergia:
         return str(self.emisiones * self.potenciaCentral * 0.001 * self.toperativo) + " kg CO2" # !!!!!SUMAR CO2 EN CONSTRUCCION!!!!! 
     
 # Funciones de ploteo comparativo.
-    # Emisiones.
+    # Emisiones
 def plotemisiones():
     for fuente in listafuentes:
         plt.bar(fuente.nombre, fuente.emisiones, label=fuente.nombre)
@@ -120,7 +120,7 @@ def plotemisiones():
         plt.legend()
     return plt.figure("Emisiones de CO2 de las fuentes energéticas")
 
-    # LCOE.
+    # LCOE
 def plotlcoe():
     for fuente in listafuentes:
         plt.bar(fuente.nombre, fuente.lcoe(), label=fuente.nombre)
@@ -138,7 +138,7 @@ def plotlcoe():
     
     return plt.figure("LCOE comparado de fuentes energéticas")
 
-    # Ingresos.
+    # Ingresos
 def plotingresos():
     for fuente in listafuentes:
         fuente.ingresos()
@@ -197,6 +197,19 @@ listafuentes = [nuclear, solar, termica, hidro, eolica]
 
 #-----------------------------------------------------------------INTERFAZ-------------------------------------------------------------#
 
+# Fuente
+titulo = QFont()
+titulo.setBold(True)
+titulo.setCapitalization(True)
+titulo.setFamily("Cambria Math")
+titulo.setPointSize(20)
+
+textonormal = QFont()
+textonormal.setBold(False)
+textonormal.setCapitalization(False)
+textonormal.setFamily("Arial")
+textonormal.setPointSize(10)
+
 class Ventana(QMainWindow): #Ventana principal
 
     def __init__(self):
@@ -210,7 +223,7 @@ class Ventana(QMainWindow): #Ventana principal
         self.setCentralWidget(contenedor)
         layout = QGridLayout()
         contenedor.setLayout(layout)
-        
+
 # Gráfico mostrado en la interfaz
         ploteo = plt.figure(figsize=(12, 8))
         plotingresos() # !! AÑADIR INTERACTIBILIDAD !!
@@ -234,16 +247,7 @@ class Ventana(QMainWindow): #Ventana principal
         # Contenido
         desplegableizq = QLabel("Placeholder desplegable")
         laypropiedades = QVBoxLayout()
-        
-        for fuente in listafuentes:
-            for key, value in fuente.__dict__.items():
-                if key not in ("lt", "ling"):  # Excluir esas claves
-                    if key == "nombre":
-                        label = QLabel(value)
-                    else:
-                        label = QPushButton(f"{key}: {value}")
-                laypropiedades.addWidget(label)
-        
+
         listapropiedades = QWidget()
         listapropiedades.setLayout(laypropiedades)
 
@@ -259,6 +263,9 @@ class Ventana(QMainWindow): #Ventana principal
         layizq.addWidget(desplegableizq)
         layizq.addWidget(listapropiedades)
         layizq.addWidget(continput)
+
+        for boton in BotonInteractivo().botones([nuclear, solar]):
+            laypropiedades.addWidget(boton)
     
         contder.setLayout(layder)
         contizq.setLayout(layizq)
@@ -268,10 +275,30 @@ class Ventana(QMainWindow): #Ventana principal
         layout.addWidget(contder, 0, 1)
         
         self.botoninput.clicked.connect(self.enviar) # Conectar el boton a la función enviar
-
+        
     def enviar(self):
         texto = self.textinput.text() # Formato tiene que ser numérico con decimales de punto.
         print(float(texto))
+
+class BotonInteractivo:
+    def __init__(self):
+        pass
+
+    def botones(self, fuentes):
+        listabotones = []
+        for fuente in fuentes:
+            for nombre, valor in fuente.__dict__.items():
+                if nombre not in ("lt", "ling"):  # Excluir listas
+                    if nombre == "nombre":
+                        label = QLabel(valor) # Crear un cuadro de texto para los nombres
+                        label.setAlignment(Qt.AlignCenter)
+                        label.setFont(titulo)
+                    else:
+                        label = QPushButton(f"{nombre}: {valor}",) # Crear un botón para las propiedades
+                        label.setFont(textonormal)
+                        
+                listabotones.append(label)
+        return listabotones
 
 def inicio():
     app = QApplication(sys.argv)
