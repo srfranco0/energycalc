@@ -77,7 +77,6 @@ class FuenteEnergia:
         plt.title('Ingresos acumulados de las centrales')
         plt.grid()
         plt.xlim(0, max(nuclear.tconst + nuclear.toperativo, solar.tconst + solar.toperativo, termica.tconst + termica.toperativo, hidro.tconst + hidro.toperativo) + 1)
-        plt.legend()
 
         return plt.plot(self.lt, self.ling, label=self.nombre)
     
@@ -210,21 +209,30 @@ textonormal.setCapitalization(False)
 textonormal.setFamily("Arial")
 textonormal.setPointSize(10)
 
+negrita = QFont()
+negrita == textonormal
+negrita.setBold(True)
+
 class Ventana(QMainWindow): #Ventana principal
 
     def __init__(self):
         super().__init__() # La ventana se inicializa llamando a la clase padre (QMainWindow, la ventana principal)
         self.setWindowTitle("Calculadora Energética | El pasado, presente y futuro de la energía nuclear. Hecho por Franco Baldassarre.") 
         # self.setWindowIcon(QtGui.QIcon()) !!ICONO!!
+        self.boton_seleccionado_id = None
+        self.botones_dict = {} # Diccionario botones
         self.interfaz()
 
-    def interfaz(self):  # Contenedor genérico
+
+    def interfaz(self):  
+        # Contenedor genérico
         contenedor = QWidget()
         self.setCentralWidget(contenedor)
         layout = QGridLayout()
         contenedor.setLayout(layout)
 
 # Gráfico mostrado en la interfaz
+
         ploteo = plt.figure(figsize=(12, 8))
         plotingresos() # !! AÑADIR INTERACTIBILIDAD !!
         grafico = VistaGrafico(ploteo)
@@ -264,46 +272,81 @@ class Ventana(QMainWindow): #Ventana principal
         layizq.addWidget(listapropiedades)
         layizq.addWidget(continput)
 
-        for boton in BotonInteractivo().botones([nuclear, solar]):
+        boton_creador = BotonInteractivo(self)
+        for boton in boton_creador.botones([nuclear, solar]):
             laypropiedades.addWidget(boton)
-    
+
         contder.setLayout(layder)
         contizq.setLayout(layizq)
 
 #Contenedores izquierdo y derecho
+
         layout.addWidget(contizq, 0, 0)
         layout.addWidget(contder, 0, 1)
         
         self.botoninput.clicked.connect(self.enviar) # Conectar el boton a la función enviar
         
     def enviar(self):
-        texto = self.textinput.text() # Formato tiene que ser numérico con decimales de punto.
-        print(float(texto))
+        if self.boton_seleccionado_id is not None:
+            boton, fuente, atributo = self.botones_dict[self.boton_seleccionado_id]
+            valor_texto = self.textinput.text()
+            try:
+                valor_num = int(valor_texto)
+                setattr(fuente, atributo, valor_num)
+                boton.setText(f"{atributo}: {valor_num}")
+                print(f"Se actualizó {atributo} de {fuente.nombre} a {valor_num}")
+            except ValueError:
+                pass
+                print("Error. Valor no numérico insertado.")
+            # Actualizar
+
 
 class BotonInteractivo:
-    def __init__(self):
-        pass
+    def __init__(self, ventana):
+        self.ventana = ventana
+        self.id_counter = 0
 
     def botones(self, fuentes):
         listabotones = []
         for fuente in fuentes:
             for nombre, valor in fuente.__dict__.items():
-                if nombre not in ("lt", "ling"):  # Excluir listas
+                if nombre not in ("lt", "ling"):
                     if nombre == "nombre":
-                        label = QLabel(valor) # Crear un cuadro de texto para los nombres
-                        label.setAlignment(Qt.AlignCenter)
-                        label.setFont(titulo)
+                        boton_widget = QLabel(valor)
+                        boton_widget.setAlignment(Qt.AlignCenter)
+                        boton_widget.setFont(titulo)
                     else:
-                        label = QPushButton(f"{nombre}: {valor}",) # Crear un botón para las propiedades
-                        label.setFont(textonormal)
-                        
-                listabotones.append(label)
+                        boton_widget = QPushButton(f"{nombre}: {valor}")
+                        boton_widget.setFont(textonormal)
+
+                        # Guardar en diccionario de ventana
+                        boton_id = self.id_counter
+                        self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
+                        self.id_counter += 1
+
+                        # Conectar clic
+                        boton_widget.clicked.connect(
+                            lambda _, bid=boton_id: self.interactuar(bid)
+                        )
+                    listabotones.append(boton_widget)
         return listabotones
+
+    def interactuar(self, boton_id):
+        if self.ventana.boton_seleccionado_id is not None:
+            boton_anterior, _, _ = self.ventana.botones_dict[self.ventana.boton_seleccionado_id]
+            boton_anterior.setFont(textonormal)
+
+        self.ventana.boton_seleccionado_id = boton_id
+        boton, fuente, atributo = self.ventana.botones_dict[boton_id]
+        boton.setFont(negrita)
+
+        print(f"Seleccionado botón {boton_id} -> {atributo} de {fuente.nombre}")
 
 def inicio():
     app = QApplication(sys.argv)
     ventana = Ventana()
     ventana.show()
+    print("Aplicación inicializada.")
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
