@@ -2,11 +2,12 @@
 import sys
 import matplotlib.pyplot as plt
 import pygame
+import numpy as np
 pygame.init()
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as VistaGrafico
 
 # PyQt5
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QGridLayout, QComboBox, QPlainTextEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QGridLayout, QComboBox, QPlainTextEdit, QInputDialog, QDialog
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
@@ -62,23 +63,25 @@ class FuenteEnergia:
 
     def ingresos(self):
         ing = 0  # Inicializar la variable de ingresos
-
-        for t in range(1, self.tconst + self.toperativo):
+        self.ling = []  # Limpiar lista de ingresos
+        self.lt = []    # Limpiar lista de tiempos
+        for t in range(0, self.tconst + self.toperativo):
             if t < self.tconst:
                 ing += self.cconst * self.potenciaCentral # Pérdida de construcción.
             elif t == self.tconst:
                 ing += self.cconst * self.potenciaCentral
                 plt.text(t, ing, str(ing) + " €", va = "bottom", ha = "center", fontstyle = "italic") # Texto de pérdida máxima
-            else:
+            else: 
                 ing += self.beneficio * self.potenciaCentral # !!!!!!!""menos costos!!!!!!! # Beneficio operativo.
             self.ling.append(ing)
             self.lt.append(t)
 
+        plt.text(self.lt[-1], self.ling[-1], f"{self.ling[-1]} €", va="bottom", ha="center", fontstyle="italic") # Texto de beneficio máximo
         plt.xlabel('Años')
         plt.ylabel('Ingresos acumulados (Euro)')
         plt.title('Ingresos acumulados de las centrales')
         plt.grid()
-        plt.xlim(0, max(nuclear.tconst + nuclear.toperativo, solar.tconst + solar.toperativo, termica.tconst + termica.toperativo, hidro.tconst + hidro.toperativo) + 1)
+        plt.xlim(0, max(f.tconst + f.toperativo for f in listafuentes) + 1)
 
         return plt.plot(self.lt, self.ling, label=self.nombre)
     
@@ -91,6 +94,7 @@ class FuenteEnergia:
     # Emisiones
 
 def plotemisiones():
+    plt.clf()
     for fuente in listafuentes:
         plt.bar(fuente.nombre, fuente.emisiones, label=fuente.nombre)
         # Formato
@@ -115,15 +119,17 @@ def plotemisiones():
             fuente.emisiones/2,
             "Emisiones totales", 
             ha="center", va="bottom",
-        )    
-        plt.xlabel('Fuente de energía')
-        plt.ylabel('Emisiones de CO2 por año (g/MWh)')
-        plt.title('CO2 emitido por las fuentes de energía')
-        plt.legend()
-    return plt.figure("Emisiones de CO2 de las fuentes energéticas")
+        )
+
+    plt.xlabel('Fuente de energía')
+    plt.ylabel('Emisiones de CO2 por año (g/MWh)')
+    plt.title('CO2 emitido por las fuentes de energía')
+    plt.legend()
+    return
 
     # LCOE
 def plotlcoe():
+    plt.clf()
     for fuente in listafuentes:
         plt.bar(fuente.nombre, fuente.lcoe(), label=fuente.nombre)
         plt.text(
@@ -138,14 +144,15 @@ def plotlcoe():
     plt.title('LCOE de las fuentes de energía')
     plt.legend()
     
-    return plt.figure("LCOE comparado de fuentes energéticas")
-
+    return
+ 
     # Ingresos
 def plotingresos():
+    plt.clf()
     for fuente in listafuentes:
         fuente.ingresos()
     plt.legend()
-    return plt.figure("Ingresos a lo largo de los años")
+    return
 
 #---------------------------------- FUENTE ENERGÍA: VARIABLES. El usuario puede modificar los valores. ----------------------------------#
 
@@ -196,6 +203,7 @@ eolica = FuenteEnergia(
 )
 
 listafuentes = [nuclear, solar, termica, hidro, eolica]
+listagraficos = {"Ingresos": plotingresos, "LCOE": plotlcoe, "Emisiones": plotemisiones}
 
 #-----------------------------------------------------------------INTERFAZ-------------------------------------------------------------#
 
@@ -220,7 +228,6 @@ negrita.setBold(True)
 res = pygame.display.Info()
 resw = res.current_w
 resh = res.current_h
-print("Resolución actual:", resw, resh)
 
 class ConsolaRedirector:
     def __init__(self, widget_output):
@@ -243,6 +250,7 @@ class Ventana(QMainWindow): #Ventana principal
         self.boton_seleccionado_id = None
         self.botones_dict = {} # Diccionario botones
         self.interfaz()
+        self.showMaximized()
 
 
     def interfaz(self):  
@@ -253,25 +261,49 @@ class Ventana(QMainWindow): #Ventana principal
         contenedor.setLayout(layout)
 
 # Gráfico mostrado en la interfaz
-
-        ploteo = plt.figure(figsize=(12, 8)) # !!!!!!!!!!!!!!!!!!!!!!
-        plotlcoe() # !! AÑADIR INTERACTIBILIDAD !!
-        grafico = VistaGrafico(ploteo)
+        self.ploteo = plt.figure(figsize=(12, 8))
+        self.grafico = VistaGrafico(self.ploteo)
     
 # CONTENEDOR DERECHO
         contder = QWidget()
-        contder.setFixedWidth(1500)
-        layder = QVBoxLayout(self)
+        contder.setFixedWidth(int(7/8*resw))
+        layder = QVBoxLayout()
 
         # Contenido
-        layder.addWidget(grafico)
+        layder.addWidget(self.grafico)
+
         desplegableder = QComboBox()
+        desplegableder.addItem("Seleccione tipo de gráfico.")
+        for item, plot in listagraficos.items():
+            desplegableder.addItem(item, userData = plot)
+        desplegableder.setFont(textonormal)
+        layder.addWidget(desplegableder)
         
+        def canviargrafico():
+            if desplegableder.currentIndex() == 0:
+                return
+            self.ploteo.clf()
+            graficofuncion = desplegableder.currentData()
+            if graficofuncion is None:
+                return
+            graficofuncion()
+            self.grafico.draw()
+            print(f"Se ha cambiado el gráfico a {desplegableder.currentText()}.")
+        
+        def actualizargrafico():
+            graficofuncion = desplegableder.currentData()
+            if graficofuncion is None:
+                return
+            graficofuncion()
+            self.grafico.draw()
+            print(f"Se ha actualizado el gráfico {desplegableder.currentText()}.") 
+
+        desplegableder.currentIndexChanged.connect(canviargrafico)
+
+        # Consola
         self.consola = QPlainTextEdit()
         self.consola.backgroundRole()
         self.consola.setReadOnly(True)
-        desplegableder.setFixedHeight(30)
-        layder.addWidget(desplegableder)
         layder.addWidget(self.consola)
         sys.stdout = ConsolaRedirector(self.consola)
         sys.stderr = ConsolaRedirector(self.consola)
@@ -288,18 +320,49 @@ class Ventana(QMainWindow): #Ventana principal
         contizq = QWidget()
         layizq = QVBoxLayout()
 
+
         # Contenido
+            # Desplegable
+        contdespizq = QWidget()
+        laydesplegableizq = QHBoxLayout()
+
         desplegableizq = QComboBox()
-        desplegableizq.addItem("-")
+        desplegableizq.addItem("Seleccione o cree fuente.")
         for fuente in listafuentes:
             desplegableizq.addItem(fuente.nombre, userData = fuente)
-            
-        laypropiedades = QVBoxLayout()
+        botoncrear = QPushButton("+")
+        botoncrear.setFont(negrita)
+        botoncrear.setFixedWidth(25)
 
+        def nuevafuente():
+            texto, ok = QInputDialog.getText(self, "Nueva fuente", "Inserte nombre de la fuente:")
+            if ok and texto: # se escribió y dio a ok
+                nombrefuente = FuenteEnergia(
+                    nombre=texto,
+                    tconst=None,
+                    cconst=None,
+                    beneficio=None,
+                    toperativo=None,
+                    emisiones=None,
+                )
+            boton_creador = BotonInteractivo(self)
+            listafuentes.append(nombrefuente)
+            desplegableizq.addItem(nombrefuente.nombre, userData=nombrefuente)
+            for boton in boton_creador.botones([nombrefuente]):
+                laypropiedades.addWidget(boton)
+
+        botoncrear.clicked.connect(nuevafuente)
+
+
+        laydesplegableizq.addWidget(desplegableizq)
+        laydesplegableizq.addWidget(botoncrear)
+        contdespizq.setLayout(laydesplegableizq)
+            # Propiedades
+        laypropiedades = QVBoxLayout()
         listapropiedades = QWidget()
         listapropiedades.setLayout(laypropiedades)
 
-            # Contenedor de la consola para interacción
+            # Consola
         continput = QWidget() 
         layinput = QHBoxLayout()
         continput.setLayout(layinput)
@@ -308,9 +371,11 @@ class Ventana(QMainWindow): #Ventana principal
         self.botoninput.setFixedWidth(100)
         layinput.addWidget(self.textinput)
         layinput.addWidget(self.botoninput)
-        layizq.addWidget(desplegableizq)
+
+        layizq.addWidget(contdespizq)
         layizq.addWidget(listapropiedades)
         layizq.addWidget(continput)
+        
 
         def cambiobotones():
             boton_creador = BotonInteractivo(self)
@@ -335,7 +400,8 @@ class Ventana(QMainWindow): #Ventana principal
         layout.addWidget(contder, 0, 1)
         
         self.botoninput.clicked.connect(self.enviar) # Conectar el boton a la función enviar
-        
+        self.botoninput.clicked.connect(actualizargrafico)
+
     def enviar(self):
         if self.boton_seleccionado_id is not None:
             boton, fuente, atributo = self.botones_dict[self.boton_seleccionado_id]
@@ -365,6 +431,17 @@ class BotonInteractivo:
                         boton_widget = QLabel(valor)
                         boton_widget.setAlignment(Qt.AlignCenter)
                         boton_widget.setFont(titulo)
+                    elif valor is None:
+                        boton_widget = QPushButton(f"{nombre}: ")
+                        boton_widget.setFont(textonormal)
+
+                        boton_id = self.id_counter
+                        self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
+                        self.id_counter += 1
+                        boton_widget.clicked.connect(
+                            lambda _, bid=boton_id: self.interactuar(bid)
+                        )
+
                     else:
                         boton_widget = QPushButton(f"{nombre}: {valor}")
                         boton_widget.setFont(textonormal)
@@ -373,8 +450,6 @@ class BotonInteractivo:
                         boton_id = self.id_counter
                         self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
                         self.id_counter += 1
-
-                        # Conectar clic
                         boton_widget.clicked.connect(
                             lambda _, bid=boton_id: self.interactuar(bid)
                         )
@@ -390,15 +465,20 @@ class BotonInteractivo:
         boton, fuente, atributo = self.ventana.botones_dict[boton_id]
         boton.setFont(negrita)
 
-        print(f"Seleccionado botón {boton_id} -> {atributo} de {fuente.nombre}")
+        print(f"Seleccionado botón {boton_id}, {atributo} de {fuente.nombre}")
 
 
 def inicio():
     app = QApplication(sys.argv)
     ventana = Ventana()
     ventana.show()
-    print("Aplicación inicializada.")
+    print("Resolución actual:", resw, "por", resh)
+    print(f"Aplicación inicializada con datos predeterminados de", {f.nombre for f in listafuentes})
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
     inicio() # Ejecutar la interfaz cuando el nombre es el principal
+
+# Align bottom desplegableizq
+# Diagrama de flujo
+# Datos programa
