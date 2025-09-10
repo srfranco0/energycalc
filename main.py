@@ -12,10 +12,15 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
 # --------------------------- Clase FuenteEnergia con atributos -----------------------------------#
+# Variables universales: 
+
+ingorigen = 0 # Ingresos, cambiar para tener una inversión inicial
+potenciaCentral = 500 # Potencia de la central en MW
+potenciaTermica = 1000 # Potencia solar en MW/m^2
+c = 2.99792*(10**8) # Velocidad de la luz
 
 class FuenteEnergia:
     def __init__(self, nombre, tconst, toperativo, emisiones, cconst, beneficio): #cmant, ccomb):
-
         # Atributos
 
         self.nombre = nombre
@@ -33,20 +38,12 @@ class FuenteEnergia:
 
         self.ling = [] # Lista de valores de ingreso
         self.lt = [] # Lista de valores de tiempo
-  
-# Variables universales: 
-
-    ingorigen = 0 # Ingresos, cambiar para tener una inversión inicial
-    potenciaCentral = 500 # Potencia de la central en MW
-    potenciaTermica = 1000 # Potencia solar en MW/m^2
-    c = 2.99792*(10**8) # Velocidad de la luz
 
 # Variables de cálculo
     areaFoto = potenciaCentral / potenciaTermica
     resnucleares = potenciaCentral * c ** -2
 # Dimensiones embalse !!!CALCULAR!!!
-
-
+    
 #-----------------------------------------------------------------FUNCIONES-------------------------------------------------------------#
 
 # Funciones de la clase FuenteEnergia.
@@ -62,17 +59,17 @@ class FuenteEnergia:
     # Función de ploteo de gráficos
 
     def ingresos(self):
-        ing = 0  # Inicializar la variable de ingresos
+        ing = ingorigen  # Inicializar la variable de ingresos
         self.ling = []  # Limpiar lista de ingresos
         self.lt = []    # Limpiar lista de tiempos
         for t in range(0, self.tconst + self.toperativo):
             if t < self.tconst:
-                ing += self.cconst * self.potenciaCentral # Pérdida de construcción.
+                ing += self.cconst * potenciaCentral # Pérdida de construcción.
             elif t == self.tconst:
-                ing += self.cconst * self.potenciaCentral
+                ing += self.cconst * potenciaCentral
                 plt.text(t, ing, str(ing) + " €", va = "bottom", ha = "center", fontstyle = "italic") # Texto de pérdida máxima
             else: 
-                ing += self.beneficio * self.potenciaCentral # !!!!!!!""menos costos!!!!!!! # Beneficio operativo.
+                ing += self.beneficio * potenciaCentral # !!!!!!!""menos costos!!!!!!! # Beneficio operativo.
             self.ling.append(ing)
             self.lt.append(t)
 
@@ -88,7 +85,7 @@ class FuenteEnergia:
     # Función de cálculo de emisiones totales.
 
     def emisionestotales(self):
-        return str(self.emisiones * self.potenciaCentral * 0.001 * self.toperativo) + " kg CO2" # !!!!!SUMAR CO2 EN CONSTRUCCION!!!!! 
+        return str(self.emisiones * potenciaCentral * 0.001 * self.toperativo) + " kg CO2" # !!!!!SUMAR CO2 EN CONSTRUCCION!!!!! 
     
 # Funciones de ploteo comparativo.
     # Emisiones
@@ -205,6 +202,12 @@ eolica = FuenteEnergia(
 listafuentes = [nuclear, solar, termica, hidro, eolica]
 listagraficos = {"Ingresos": plotingresos, "LCOE": plotlcoe, "Emisiones": plotemisiones}
 
+for fuente in listafuentes:
+    fuente.diccionarioprop = {"Nombre": fuente.nombre, "Tiempo de construcción": fuente.tconst,
+                       "Tiempo operativo": fuente.toperativo, "Costo de construcción": fuente.cconst, # Sincronizar diccionario con FuenteEnergia
+                       "Beneficio anual":fuente.beneficio, "Emisiones anuales":fuente.emisiones}
+
+
 #-----------------------------------------------------------------INTERFAZ-------------------------------------------------------------#
 
 # Fuente
@@ -269,7 +272,7 @@ class Ventana(QMainWindow): #Ventana principal
         contder.setFixedWidth(int(7/8*resw))
         layder = QVBoxLayout()
 
-        # Contenido
+        # Grafico
         layder.addWidget(self.grafico)
 
         desplegableder = QComboBox()
@@ -279,6 +282,8 @@ class Ventana(QMainWindow): #Ventana principal
         desplegableder.setFont(textonormal)
         layder.addWidget(desplegableder)
         
+        # Funciones grafico
+
         def canviargrafico():
             if desplegableder.currentIndex() == 0:
                 return
@@ -320,9 +325,7 @@ class Ventana(QMainWindow): #Ventana principal
         contizq = QWidget()
         layizq = QVBoxLayout()
 
-
-        # Contenido
-            # Desplegable
+    # Desplegable
         contdespizq = QWidget()
         laydesplegableizq = QHBoxLayout()
 
@@ -337,6 +340,7 @@ class Ventana(QMainWindow): #Ventana principal
         def nuevafuente():
             texto, ok = QInputDialog.getText(self, "Nueva fuente", "Inserte nombre de la fuente:")
             if ok and texto: # se escribió y dio a ok
+                limpiar()
                 nombrefuente = FuenteEnergia(
                     nombre=texto,
                     tconst=None,
@@ -345,6 +349,8 @@ class Ventana(QMainWindow): #Ventana principal
                     toperativo=None,
                     emisiones=None,
                 )
+            else:
+                return
             boton_creador = BotonInteractivo(self)
             listafuentes.append(nombrefuente)
             desplegableizq.addItem(nombrefuente.nombre, userData=nombrefuente)
@@ -353,16 +359,15 @@ class Ventana(QMainWindow): #Ventana principal
 
         botoncrear.clicked.connect(nuevafuente)
 
-
         laydesplegableizq.addWidget(desplegableizq)
         laydesplegableizq.addWidget(botoncrear)
         contdespizq.setLayout(laydesplegableizq)
-            # Propiedades
+
         laypropiedades = QVBoxLayout()
         listapropiedades = QWidget()
         listapropiedades.setLayout(laypropiedades)
 
-            # Consola
+        # caja de texto
         continput = QWidget() 
         layinput = QHBoxLayout()
         continput.setLayout(layinput)
@@ -371,6 +376,8 @@ class Ventana(QMainWindow): #Ventana principal
         self.botoninput.setFixedWidth(100)
         layinput.addWidget(self.textinput)
         layinput.addWidget(self.botoninput)
+        self.botoninput.clicked.connect(self.enviar) # Conectar el boton a la función enviar
+        self.botoninput.clicked.connect(actualizargrafico)
 
         layizq.addWidget(contdespizq)
         layizq.addWidget(listapropiedades)
@@ -394,13 +401,8 @@ class Ventana(QMainWindow): #Ventana principal
         contder.setLayout(layder)
         contizq.setLayout(layizq)
 
-#Contenedores izquierdo y derecho
-
         layout.addWidget(contizq, 0, 0)
         layout.addWidget(contder, 0, 1)
-        
-        self.botoninput.clicked.connect(self.enviar) # Conectar el boton a la función enviar
-        self.botoninput.clicked.connect(actualizargrafico)
 
     def enviar(self):
         if self.boton_seleccionado_id is not None:
@@ -416,44 +418,39 @@ class Ventana(QMainWindow): #Ventana principal
                 print("Error. Valor no numérico insertado.")
             # Actualizar
 
-
-class BotonInteractivo:
+class BotonInteractivo: # Clase para crear botones
     def __init__(self, ventana):
         self.ventana = ventana
-        self.id_counter = 0
-
+        self.id_counter = 0 # id de los botones
     def botones(self, fuentes):
         listabotones = []
         for fuente in fuentes:
-            for nombre, valor in fuente.__dict__.items():
-                if nombre not in ("lt", "ling"):
-                    if nombre == "nombre":
-                        boton_widget = QLabel(valor)
-                        boton_widget.setAlignment(Qt.AlignCenter)
-                        boton_widget.setFont(titulo)
-                    elif valor is None:
-                        boton_widget = QPushButton(f"{nombre}: ")
-                        boton_widget.setFont(textonormal)
+            for nombre, valor in fuente.diccionarioprop.items():
+                if nombre == "Nombre":
+                    boton_widget = QLabel(valor)
+                    boton_widget.setAlignment(Qt.AlignCenter)
+                    boton_widget.setFont(titulo)
+                elif valor is None: # Para creador de nuevas fuentes
+                    boton_widget = QPushButton(f"{nombre}: ")
+                    boton_widget.setFont(textonormal)
+                    boton_id = self.id_counter
+                    self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
+                    self.id_counter += 1
+                    boton_widget.clicked.connect(
+                        lambda _, bid=boton_id: self.interactuar(bid)
+                    )
+                else:
+                    boton_widget = QPushButton(f"{nombre}: {valor}")
+                    boton_widget.setFont(textonormal)
+                    boton_id = self.id_counter
+                    self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
+                    self.id_counter += 1
+                    boton_widget.clicked.connect(
+                        lambda _, bid=boton_id: self.interactuar(bid)
+                    )
 
-                        boton_id = self.id_counter
-                        self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
-                        self.id_counter += 1
-                        boton_widget.clicked.connect(
-                            lambda _, bid=boton_id: self.interactuar(bid)
-                        )
+                listabotones.append(boton_widget)
 
-                    else:
-                        boton_widget = QPushButton(f"{nombre}: {valor}")
-                        boton_widget.setFont(textonormal)
-
-                        # Guardar en diccionario de ventana
-                        boton_id = self.id_counter
-                        self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
-                        self.id_counter += 1
-                        boton_widget.clicked.connect(
-                            lambda _, bid=boton_id: self.interactuar(bid)
-                        )
-                    listabotones.append(boton_widget)
         return listabotones
 
     def interactuar(self, boton_id):
