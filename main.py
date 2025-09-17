@@ -28,14 +28,12 @@ class FuenteEnergia:
         self.toperativo = toperativo # años de operación
 
         self.cconst = cconst # Euros por año de construcción por MWh (negativo, ya que es pérdida)
-        #self.cmant = cmant # Costo de mantenimiento por año
-        #self.ccomb = ccomb # Costo de combustible por año
 
         self.beneficio = beneficio # Euro/MWh por año en operación
 
         self.emisiones = emisiones # g de CO2 por MWh
-        # Listas vacías para almacenar y graficar
 
+        # Listas vacías para almacenar y graficar
         self.ling = [] # Lista de valores de ingreso
         self.lt = [] # Lista de valores de tiempo
 
@@ -62,6 +60,7 @@ class FuenteEnergia:
         ing = ingorigen  # Inicializar la variable de ingresos
         self.ling = []  # Limpiar lista de ingresos
         self.lt = []    # Limpiar lista de tiempos
+
         for t in range(0, self.tconst + self.toperativo):
             if t < self.tconst:
                 ing += self.cconst * potenciaCentral # Pérdida de construcción.
@@ -69,7 +68,7 @@ class FuenteEnergia:
                 ing += self.cconst * potenciaCentral
                 plt.text(t, ing, str(ing) + " €", va = "bottom", ha = "center", fontstyle = "italic") # Texto de pérdida máxima
             else: 
-                ing += self.beneficio * potenciaCentral # !!!!!!!""menos costos!!!!!!! # Beneficio operativo.
+                ing += self.beneficio * potenciaCentral
             self.ling.append(ing)
             self.lt.append(t)
 
@@ -85,38 +84,45 @@ class FuenteEnergia:
     # Función de cálculo de emisiones totales.
 
     def emisionestotales(self):
-        return str(self.emisiones * potenciaCentral * 0.001 * self.toperativo) + " kg CO2" # !!!!!SUMAR CO2 EN CONSTRUCCION!!!!! 
+        return str(self.emisiones * potenciaCentral * 0.001 * self.toperativo) + " kg CO2"
     
 # Funciones de ploteo comparativo.
     # Emisiones
 
+#substitute in the "for attr in", the "nombre" for fuente.nombre, "tconst" for fuente.tconst and so on
 def plotemisiones():
     plt.clf()
     for fuente in listafuentes:
-        plt.bar(fuente.nombre, fuente.emisiones, label=fuente.nombre)
-        # Formato
-        plt.text(
-        fuente.nombre,
-        0,
-        str(fuente.emisionestotales()), 
-        ha="center", va="bottom",
-        fontweight = "bold",
-        color = "white",
-        size = 10
-            )
-        plt.text(
-            fuente.nombre,  # x
-            fuente.emisiones,   # y
-            str(fuente.emisiones),  # texto
-            ha="center", va="bottom",
-            fontweight = "bold"            
-        )
-        plt.text(
+
+        if all(
+            getattr(fuente, attr) is not None
+            for attr in ["nombre", "tconst", "toperativo", "cconst", "beneficio", "emisiones"]
+        ):
+
+            plt.bar(fuente.nombre, fuente.emisiones, label=fuente.nombre)
+            # Formato
+            plt.text(
             fuente.nombre,
-            fuente.emisiones/2,
-            "Emisiones totales", 
+            0,
+            str(fuente.emisionestotales()), 
             ha="center", va="bottom",
-        )
+            fontweight = "bold",
+            color = "white",
+            size = 10
+                )
+            plt.text(
+                fuente.nombre,  # x
+                fuente.emisiones,   # y
+                str(fuente.emisiones),  # texto
+                ha="center", va="bottom",
+                fontweight = "bold"            
+            )
+            plt.text(
+                fuente.nombre,
+                fuente.emisiones/2,
+                "Emisiones totales", 
+                ha="center", va="bottom",
+            )
 
     plt.xlabel('Fuente de energía')
     plt.ylabel('Emisiones de CO2 por año (g/MWh)')
@@ -126,21 +132,26 @@ def plotemisiones():
 
     # LCOE
 def plotlcoe():
+    
     plt.clf()
     for fuente in listafuentes:
-        plt.bar(fuente.nombre, fuente.lcoe(), label=fuente.nombre)
-        plt.text(
-            fuente.nombre,  # x
-            fuente.lcoe(),   # y
-            str(fuente.lcoe()),  # texto
-            ha="center", va="bottom",
-            fontweight = "bold"
-        )
-    plt.xlabel('Fuente de energía')
-    plt.ylabel('LCOE (Euro/MWh)')
-    plt.title('LCOE de las fuentes de energía')
-    plt.legend()
-    
+        if all(
+            getattr(fuente, attr) is not None
+            for attr in ["nombre", "tconst", "toperativo", "cconst", "beneficio", "emisiones"]
+        ):
+            plt.bar(fuente.nombre, fuente.lcoe(), label=fuente.nombre)
+            plt.text(
+                fuente.nombre,  # x
+                fuente.lcoe(),   # y
+                str(fuente.lcoe()),  # texto
+                ha="center", va="bottom",
+                fontweight = "bold"
+            )
+        plt.xlabel('Fuente de energía')
+        plt.ylabel('LCOE (Euro/MWh)')
+        plt.title('LCOE de las fuentes de energía')
+        plt.legend()
+
     return
  
     # Ingresos
@@ -149,6 +160,7 @@ def plotingresos():
     for fuente in listafuentes:
         fuente.ingresos()
     plt.legend()
+    plt.grid(True)
     return
 
 #---------------------------------- FUENTE ENERGÍA: VARIABLES. El usuario puede modificar los valores. ----------------------------------#
@@ -203,9 +215,19 @@ listafuentes = [nuclear, solar, termica, hidro, eolica]
 listagraficos = {"Ingresos": plotingresos, "LCOE": plotlcoe, "Emisiones": plotemisiones}
 
 for fuente in listafuentes:
-    fuente.diccionarioprop = {"Nombre": fuente.nombre, "Tiempo de construcción": fuente.tconst,
-                       "Tiempo operativo": fuente.toperativo, "Costo de construcción": fuente.cconst, # Sincronizar diccionario con FuenteEnergia
-                       "Beneficio anual":fuente.beneficio, "Emisiones anuales":fuente.emisiones}
+    fuente.diccionarioprop = {
+                            "Nombre": fuente.nombre, 
+                            "Tiempo de construcción": fuente.tconst,
+                            "Tiempo operativo": fuente.toperativo, 
+                            "Costo de construcción": fuente.cconst,
+                            "Beneficio anual":fuente.beneficio,
+                            "Emisiones anuales":fuente.emisiones}
+
+listavariables = {
+    "Ingresos": ingorigen,
+    "Potencia de las centrales": potenciaCentral,
+    "Potencia térmica del sol": potenciaTermica,
+}
 
 
 #-----------------------------------------------------------------INTERFAZ-------------------------------------------------------------#
@@ -247,7 +269,7 @@ class ConsolaRedirector:
 class Ventana(QMainWindow): #Ventana principal
 
     def __init__(self):
-        super().__init__() # La ventana se inicializa llamando a la clase padre (QMainWindow, la ventana principal)
+        super().__init__()
         self.setWindowTitle("Calculadora Energética | El pasado, presente y futuro de la energía nuclear. Hecho por Franco Baldassarre.") 
         # self.setWindowIcon(QtGui.QIcon()) !!ICONO!!
         self.boton_seleccionado_id = None
@@ -343,14 +365,24 @@ class Ventana(QMainWindow): #Ventana principal
                 limpiar()
                 nombrefuente = FuenteEnergia(
                     nombre=texto,
-                    tconst=None,
-                    cconst=None,
-                    beneficio=None,
-                    toperativo=None,
-                    emisiones=None,
+                    tconst=5,
+                    cconst=-2,
+                    beneficio=5,
+                    toperativo=10,
+                    emisiones=1,
                 )
+
+                nombrefuente.diccionarioprop = {
+                    "Nombre": nombrefuente.nombre,
+                    "Tiempo de construcción": nombrefuente.tconst,
+                    "Tiempo operativo": nombrefuente.toperativo,
+                    "Costo de construcción": nombrefuente.cconst,
+                    "Beneficio anual": nombrefuente.beneficio,
+                    "Emisiones anuales": nombrefuente.emisiones
+                }
             else:
                 return
+            
             boton_creador = BotonInteractivo(self)
             listafuentes.append(nombrefuente)
             desplegableizq.addItem(nombrefuente.nombre, userData=nombrefuente)
@@ -379,17 +411,23 @@ class Ventana(QMainWindow): #Ventana principal
         self.botoninput.clicked.connect(self.enviar) # Conectar el boton a la función enviar
         self.botoninput.clicked.connect(actualizargrafico)
 
-        layizq.addWidget(contdespizq)
+        layizq.addWidget(contdespizq, alignment= Qt.AlignTop)
         layizq.addWidget(listapropiedades)
-        layizq.addWidget(continput)
+        layizq.addWidget(continput, alignment= Qt.AlignBottom)
         
 
         def cambiobotones():
-            boton_creador = BotonInteractivo(self)
-            fuentes = desplegableizq.currentData()
-            for boton in boton_creador.botones([fuentes]):
-                laypropiedades.addWidget(boton)
-            print("Cambiada interfaz a mostrar datos de", fuentes.nombre)
+            try:
+                boton_creador = BotonInteractivo(self)
+                fuentes = desplegableizq.currentData()
+                for boton in boton_creador.botones([fuentes]):
+                    laypropiedades.addWidget(boton)
+                print("Cambiada interfaz a mostrar datos de", fuentes.nombre)
+            except:
+                print("Seleccione una fuente correcta.")
+                for boton in boton_creador.botones([nuclear]):
+                    laypropiedades.addWidget(boton)
+            return 
 
         def limpiar():
             while laypropiedades.count():
@@ -405,18 +443,62 @@ class Ventana(QMainWindow): #Ventana principal
         layout.addWidget(contder, 0, 1)
 
     def enviar(self):
-        if self.boton_seleccionado_id is not None:
-            boton, fuente, atributo = self.botones_dict[self.boton_seleccionado_id]
-            valor_texto = self.textinput.text()
-            try:
-                valor_num = int(valor_texto)
-                setattr(fuente, atributo, valor_num)
-                boton.setText(f"{atributo}: {valor_num}")
-                print(f"Se actualizó {atributo} de {fuente.nombre} a {valor_num}")
-            except ValueError:
-                pass
-                print("Error. Valor no numérico insertado.")
-            # Actualizar
+        global ingorigen, potenciaCentral, potenciaTermica
+        if self.boton_seleccionado_id is None:
+            print("Seleccione primero un atributo pulsando su botón.")
+            return
+
+        boton, fuente, etiqueta = self.botones_dict[self.boton_seleccionado_id]
+        valor_texto = self.textinput.text()
+
+        if valor_texto == "":
+            print("Introduzca un valor antes de enviar.")
+            return
+
+        try:
+            if fuente is not None and etiqueta in ["Tiempo de construcción", "Tiempo operativo", "Emisiones anuales"]:
+                valor = int(float(valor_texto))
+            else:
+                valor = float(valor_texto)
+        except ValueError:
+            print("Introduzca un valor numérico válido.")
+            return
+        if valor < 1:
+            print("Seleccione un valor mayor a 1.")
+            return
+
+        if fuente is not None:
+            fuente.diccionarioprop[etiqueta] = valor
+
+            if etiqueta == "Tiempo de construcción":
+                fuente.tconst = int(valor)
+            elif etiqueta == "Tiempo operativo":
+                fuente.toperativo = int(valor)
+            elif etiqueta == "Costo de construcción":
+                fuente.cconst = float(valor)
+            elif etiqueta == "Beneficio anual":
+                fuente.beneficio = float(valor)
+            elif etiqueta == "Emisiones anuales":
+                fuente.emisiones = int(valor)
+            else:
+                print(f"Etiqueta {etiqueta} no reconocida, no se actualizó ningún atributo de la fuente.")
+        else:
+            listavariables[etiqueta] = valor
+
+            if etiqueta == "Ingresos":
+                ingorigen = float(valor)
+            elif etiqueta == "Potencia de las centrales":
+                potenciaCentral = float(valor)
+            elif etiqueta == "Potencia térmica del sol":
+                potenciaTermica = float(valor)
+            else:
+                print(f"Etiqueta {etiqueta} no reconocida, no se actualizó ninguna variable global.")
+
+        boton.setText(f"{etiqueta}: {valor}") 
+        if fuente is not None:
+            print(f"Se actualizó {etiqueta} de {fuente.nombre} a {valor}")
+        else:
+            print(f"Se actualizó valor de la variable universal a {valor}.")
 
 class BotonInteractivo: # Clase para crear botones
     def __init__(self, ventana):
@@ -426,10 +508,12 @@ class BotonInteractivo: # Clase para crear botones
         listabotones = []
         for fuente in fuentes:
             for nombre, valor in fuente.diccionarioprop.items():
-                if nombre == "Nombre":
+
+                if nombre == "Nombre": # Título de nombre de fuente
                     boton_widget = QLabel(valor)
                     boton_widget.setAlignment(Qt.AlignCenter)
                     boton_widget.setFont(titulo)
+
                 elif valor is None: # Para creador de nuevas fuentes
                     boton_widget = QPushButton(f"{nombre}: ")
                     boton_widget.setFont(textonormal)
@@ -439,8 +523,9 @@ class BotonInteractivo: # Clase para crear botones
                     boton_widget.clicked.connect(
                         lambda _, bid=boton_id: self.interactuar(bid)
                     )
-                else:
-                    boton_widget = QPushButton(f"{nombre}: {valor}")
+
+                else: # Botones interactivos con propiedades de la fuente
+                    boton_widget = QPushButton(f"{nombre}: {valor}") 
                     boton_widget.setFont(textonormal)
                     boton_id = self.id_counter
                     self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
@@ -448,21 +533,42 @@ class BotonInteractivo: # Clase para crear botones
                     boton_widget.clicked.connect(
                         lambda _, bid=boton_id: self.interactuar(bid)
                     )
-
                 listabotones.append(boton_widget)
+
+        for nombre, valor in listavariables.items(): # Botones de variables universales
+            boton_id = self.id_counter
+            boton_widget = QPushButton(f"{nombre}: {valor}")
+            boton_widget.setFont(textonormal)
+            listabotones.append(boton_widget)
+            self.ventana.botones_dict[boton_id] = (boton_widget, None, nombre)
+            self.id_counter += 1
+            boton_widget.clicked.connect(
+            lambda _, bid=boton_id: self.interactuar(bid)
+            )
+
+    # Texto específico de las fuentes !!!!!!!!!!!!!!ACTUALIZAR!!!!!!!!!!!!!!!!
+        texto = QLabel(f"Área de placas fotovoltaicas: {FuenteEnergia.areaFoto}")
+        texto.setFont(textonormal)
+        listabotones.append(texto)
+        texto = QLabel(f"Cantidad de residuos nucleares: {FuenteEnergia.resnucleares}")
+        texto.setFont(textonormal)
+        listabotones.append(texto)
 
         return listabotones
 
     def interactuar(self, boton_id):
-        if self.ventana.boton_seleccionado_id is not None:
+        if self.ventana.boton_seleccionado_id is not None: # Poner en negrita el color del botón seleccionado
             boton_anterior, _, _ = self.ventana.botones_dict[self.ventana.boton_seleccionado_id]
             boton_anterior.setFont(textonormal)
 
         self.ventana.boton_seleccionado_id = boton_id
         boton, fuente, atributo = self.ventana.botones_dict[boton_id]
         boton.setFont(negrita)
-
-        print(f"Seleccionado botón {boton_id}, {atributo} de {fuente.nombre}")
+            
+        if boton_id < 5:
+            print(f"Seleccionado botón {boton_id}, {atributo} de {fuente.nombre}")
+        else:
+            print(f"Seleccionado boton {boton_id}, variable universal.")
 
 
 def inicio():
@@ -470,12 +576,13 @@ def inicio():
     ventana = Ventana()
     ventana.show()
     print("Resolución actual:", resw, "por", resh)
-    print(f"Aplicación inicializada con datos predeterminados de", {f.nombre for f in listafuentes})
+    print("Aplicación inicializada con datos predeterminados de fuentes:")
+    for fuente in listafuentes:
+        print(f"{fuente.nombre}, con tiempo de construcción {fuente.tconst}, tiempo operativo {fuente.toperativo}, costo de construcción {fuente.cconst}, beneficio de {fuente.beneficio} y emisiones de {fuente.emisiones}.")
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
     inicio() # Ejecutar la interfaz cuando el nombre es el principal
 
-# Align bottom desplegableizq
 # Diagrama de flujo
 # Datos programa
