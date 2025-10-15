@@ -164,51 +164,51 @@ def plotingresos():
 
 nuclear = FuenteEnergia(
     nombre='Nuclear',
-    tconst = 7, 
-    cconst = -2,  
-    beneficio = 0.4,
-    toperativo= 70, 
-    emisiones = 0.025,
-    rendimiento=0.35
+    tconst = 10, 
+    cconst = -6,  
+    beneficio = 10,
+    toperativo= 40, 
+    emisiones = 1,
+    rendimiento=1
 )
 
 fotovoltaica = FuenteEnergia(
     nombre='Fotovoltaica',
-    tconst = 2,
-    cconst = -0.8,
-    beneficio = 0.065,
-    toperativo = 45,
-    emisiones = 0.18,
-    rendimiento= 0.2
+    tconst = 10,
+    cconst = -2,
+    beneficio = 5,
+    toperativo = 40,
+    emisiones = 2,
+    rendimiento=1
 )
 
 termica = FuenteEnergia(
     nombre='Térmica',
-    tconst = 3,
-    cconst = -0.7,
-    beneficio = 0.078,
-    toperativo = 30,
-    emisiones = 3.24,
-    rendimiento= 0.4
+    tconst = 5,
+    cconst = -10,
+    beneficio = 5,
+    toperativo = 15,
+    emisiones = 10,
+    rendimiento=1
 )
 
 hidro = FuenteEnergia(
-    nombre='Hidroeléctrica',
-    tconst = 7,
-    cconst = -1,
-    beneficio = 0.0064,
-    toperativo = 27,
-    emisiones = 0.022,
-    rendimiento=0.9
+    nombre='Hidráulica',
+    tconst = 15,
+    cconst = -3,
+    beneficio = 1,
+    toperativo = 60,
+    emisiones = 1,
+    rendimiento=1
 )
 eolica = FuenteEnergia(
     nombre='Eólica',
-    tconst = 9,
-    cconst = -0.95,
-    beneficio = 0.0057,
-    toperativo = 30,
-    emisiones = 0.054,
-    rendimiento=0.45
+    tconst = 5,
+    cconst = -4,
+    beneficio = 3,
+    toperativo = 25,
+    emisiones = 3,
+    rendimiento=1
 )
 
 listafuentes = [nuclear, fotovoltaica, termica, hidro, eolica]
