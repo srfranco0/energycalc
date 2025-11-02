@@ -23,8 +23,13 @@ caudalagua = 100 # Caudal de agua en m^3/s
 densidadagua = 997 # kg/m^3
 c = 2.99792*(10**8) # Velocidad de la luz
 
+# Conversión
+conversion_segundos_por_año = 365.25 * 24 * 3600
+conversion_kwh_por_mj = 3.6 
+conversion_kg_por_tonelada = 1000
+
 class FuenteEnergia:
-    def __init__(self, nombre, tconst, toperativo, emisiones, cconst, beneficio, rendimiento):
+    def __init__(self, nombre, tconst, toperativo, emisiones, cconst, beneficio, rendimiento, factor):
         # Atributos
         self.nombre = nombre
         self.tconst = tconst # años de construcción
@@ -35,6 +40,7 @@ class FuenteEnergia:
         self.beneficio = beneficio # Euro/MWh por año en operación
         self.emisiones = emisiones # kg de CO2 por MJ
         self.rendimiento = rendimiento # Rendimiento de la fuente (0-1)
+        self.factor = factor # Factor de carga (0-1)
 
         # Listas vacías para almacenar y graficar
         self.ling = [] # Lista de valores de ingreso
@@ -80,7 +86,7 @@ class FuenteEnergia:
     # Función de cálculo de emisiones totales.
 
     def emisionestotales(self):
-        return str(self.emisiones * potenciaCentral * self.toperativo * 365.25 * 24 * 3600* 1000**-1) + " T CO2"
+        return str(self.emisiones * potenciaCentral * self.toperativo * conversion_segundos_por_año * conversion_kg_por_tonelada**-1 * 1000**-1) + " mil T CO2"
      
 # Funciones de ploteo comparativo.
 
@@ -98,11 +104,11 @@ def plotemisiones():
             # Formato
             plt.text(
             fuente.nombre,
-            0,
-            str(fuente.emisionestotales()), 
+            fuente.emisiones + 0.1,
+            f"Total: {str(fuente.emisionestotales())}" ,
             ha="center", va="bottom",
             fontweight = "bold",
-            color = "white",
+            color = "black",
             size = 10
                 )
             plt.text(
@@ -151,6 +157,7 @@ def plotlcoe():
  
     # Ingresos
 def plotingresos():
+
     plt.clf()
     for fuente in listafuentes:
         fuente.ingresos()
@@ -164,51 +171,56 @@ def plotingresos():
 
 nuclear = FuenteEnergia(
     nombre='Nuclear',
-    tconst = 10, 
-    cconst = -6,  
-    beneficio = 10,
-    toperativo= 40, 
-    emisiones = 1,
-    rendimiento=1
+    tconst = 7, 
+    cconst = -2,  
+    beneficio = 0.4,
+    toperativo= 70, 
+    emisiones = 0.025,
+    rendimiento=0.35,
+    factor=0.9
 )
 
 fotovoltaica = FuenteEnergia(
     nombre='Fotovoltaica',
-    tconst = 10,
-    cconst = -2,
-    beneficio = 5,
-    toperativo = 40,
-    emisiones = 2,
-    rendimiento=1
+    tconst = 2,
+    cconst = -0.8,
+    beneficio = 0.065,
+    toperativo = 45,
+    emisiones = 0.18,
+    rendimiento= 0.2,
+    factor=0.2
 )
 
 termica = FuenteEnergia(
     nombre='Térmica',
-    tconst = 5,
-    cconst = -10,
-    beneficio = 5,
-    toperativo = 15,
-    emisiones = 10,
-    rendimiento=1
+    tconst = 3,
+    cconst = -0.7,
+    beneficio = 0.078,
+    toperativo = 30,
+    emisiones = 3.24,
+    rendimiento= 0.4,
+    factor=0.5
 )
 
 hidro = FuenteEnergia(
-    nombre='Hidráulica',
-    tconst = 15,
-    cconst = -3,
-    beneficio = 1,
-    toperativo = 60,
-    emisiones = 1,
-    rendimiento=1
+    nombre='Hidroeléctrica',
+    tconst = 7,
+    cconst = -1,
+    beneficio = 0.0064,
+    toperativo = 27,
+    emisiones = 0.022,
+    rendimiento=0.9,
+    factor=0.5
 )
 eolica = FuenteEnergia(
     nombre='Eólica',
-    tconst = 5,
-    cconst = -4,
-    beneficio = 3,
-    toperativo = 25,
-    emisiones = 3,
-    rendimiento=1
+    tconst = 9,
+    cconst = -0.95,
+    beneficio = 0.0057,
+    toperativo = 30,
+    emisiones = 0.054,
+    rendimiento=0.45,
+    factor=0.3
 )
 
 listafuentes = [nuclear, fotovoltaica, termica, hidro, eolica]
@@ -224,6 +236,7 @@ for fuente in listafuentes:
                             "Emisiones anuales (kg CO2)":fuente.emisiones,
                             "Rendimiento (0-1)": fuente.rendimiento,
                             "Potencia útil (MW)": fuente.potencia,
+                            "Factor de carga": fuente.factor
                             }
     
 # Variables de cálculo
@@ -265,6 +278,8 @@ res = pygame.display.Info()
 resw = res.current_w
 resh = res.current_h
 
+# ------------------------------CONSOLA---------------------------------- #
+
 class ConsolaRedirector:
     def __init__(self, widget_output):
         self.output = widget_output
@@ -277,6 +292,8 @@ class ConsolaRedirector:
     def flush(self):
         pass
     
+# ------------------------------VENTANA---------------------------------- #
+
 class Ventana(QMainWindow): #Ventana principal
 
     def __init__(self):
@@ -378,6 +395,8 @@ class Ventana(QMainWindow): #Ventana principal
                 if widget:
                     widget.setParent(None)
 
+        # FUNCIÓN NUEVAFUENTE
+
         def nuevafuente():
             try:
                 # Nombre
@@ -423,7 +442,16 @@ class Ventana(QMainWindow): #Ventana principal
                 if rendimiento >= 1:
                     print("El rendimiento debe ser menor que 1.")
                     return
-
+                
+                # Factor de carga
+                factor_text, ok7 = QInputDialog.getText(self, "Nueva fuente", "Inserte factor de carga (0–1):")
+                if not ok7 or not factor_text:
+                    return
+                factor = float(factor_text)
+                if factor >= 1:
+                    print("El factor de carga debe ser menor que 1.")
+                    return
+                
             except ValueError:
                 print("Introduzca valores numéricos válidos.")
                 return
@@ -438,29 +466,22 @@ class Ventana(QMainWindow): #Ventana principal
                 beneficio=beneficio,
                 toperativo=toperativo,
                 emisiones=emisiones,
-                rendimiento=rendimiento
+                rendimiento=rendimiento,
+                factor=factor
             )
 
             nueva_fuente.diccionarioprop = {
-                "Nombre": nueva_fuente.nombre,
-                "Tiempo de construcción": nueva_fuente.tconst,
-                "Tiempo operativo": nueva_fuente.toperativo,
-                "Costo de construcción": nueva_fuente.cconst,
-                "Beneficio anual": nueva_fuente.beneficio,
-                "Emisiones anuales": nueva_fuente.emisiones,
-                "Rendimiento": nueva_fuente.rendimiento
+                "Nombre de la fuente": nueva_fuente.nombre,
+                "Tiempo de construcción (años)": nueva_fuente.tconst,
+                "Tiempo operativo (años)": nueva_fuente.toperativo,
+                "Costo de construcción (Euros, en negativo)": nueva_fuente.cconst,
+                "Beneficio anual (Mill. Euros)": nueva_fuente.beneficio,
+                "Emisiones anuales (kg CO2)": nueva_fuente.emisiones,
+                "Rendimiento (0-1)": nueva_fuente.rendimiento,
+                "Factor de carga": nueva_fuente.factor
             }
+            # Botones nueva fuente
 
-            boton_creador = BotonInteractivo(self)
-            listafuentes.append(nueva_fuente)
-            desplegableizq.addItem(nueva_fuente.nombre, userData=nueva_fuente)
-
-            for boton in boton_creador.botones([nueva_fuente]):
-                laypropiedades.addWidget(boton)
-
-            desplegableder.setCurrentIndex(1 if desplegableder.count() > 1 else 0)
-            cambiargrafico()
-        
             boton_creador = BotonInteractivo(self)
             listafuentes.append(nueva_fuente)
             desplegableizq.addItem(nueva_fuente.nombre, userData=nueva_fuente)
@@ -468,7 +489,8 @@ class Ventana(QMainWindow): #Ventana principal
                 laypropiedades.addWidget(boton)
             desplegableder.setCurrentIndex(1 if desplegableder.count() > 1 else 0)
             cambiargrafico()
-
+            
+        # Conectar función a boton enviar
         botoncrear.clicked.connect(nuevafuente)
 
         laydesplegableizq.addWidget(desplegableizq)
@@ -494,7 +516,7 @@ class Ventana(QMainWindow): #Ventana principal
         layizq.addWidget(listapropiedades)
         layizq.addWidget(continput, alignment= Qt.AlignBottom)
         
-
+        # FUNCIÓN CAMBIOBOTONES
         def cambiobotones():
             try:
                 boton_creador = BotonInteractivo(self)
@@ -516,6 +538,7 @@ class Ventana(QMainWindow): #Ventana principal
         layout.addWidget(contizq, 0, 0)
         layout.addWidget(contder, 0, 1)
 
+    # FUNCIÓN ENVIAR
     def enviar(self):
         global ingorigen, potenciaCentral, potenciaTermica, caudalagua, densidadagua, resnucleares, resnuctot, areaFoto
 
@@ -539,12 +562,12 @@ class Ventana(QMainWindow): #Ventana principal
             print("Introduzca un valor numérico válido.")
             return
 
-        if etiqueta != "Rendimiento" and abs(valor) < 1:
+        if etiqueta != "Rendimiento" or "Factor de carga" and abs(valor) < 1:
             print("Seleccione un valor mayor a 1.")
             return
             
-        if etiqueta == "Rendimiento" and not (0 < valor < 1):
-            print("El rendimiento debe ser entre 0 y 1.")
+        if etiqueta == "Rendimiento" or "Factor de carga" and not (0 < valor < 1):
+            print("El valor debe estar entre 0 y 1.")
             return
 
         if fuente is not None:
@@ -567,6 +590,8 @@ class Ventana(QMainWindow): #Ventana principal
                 fuente.toperativo = int(valor)
             elif etiqueta == "Potencia útil (MW)":
                 fuente.potencia = valor
+            elif etiqueta == "Factor de carga":
+                fuente.factor = valor
 
         else:
             if etiqueta == "Ingresos iniciales (Mill. Euros)":
@@ -594,21 +619,27 @@ class Ventana(QMainWindow): #Ventana principal
         self.textinput.clear()
         boton.setText(f"{etiqueta}: {valor}")
 
+
+# ------------------------------BOTONINTERACTIVO---------------------------------- #
+
 class BotonInteractivo: # Clase para crear botones
     def __init__(self, ventana):
         self.ventana = ventana
         self.id_counter = 0 # id de los botones
+
     def botones(self, fuentes):
         listabotones = []
         for fuente in fuentes:
             for nombre, valor in fuente.diccionarioprop.items():
-                if nombre == "Nombre": # Título de nombre de fuente
+
+                if nombre == "Nombre de la fuente": # Título de nombre de fuente
                     boton_widget = QLabel(valor)
                     boton_widget.setAlignment(Qt.AlignCenter)
                     boton_widget.setFont(titulo)
+
                 elif valor is None: # Para creador de nuevas fuentes
                     boton_widget = QPushButton(f"{nombre}: ")
-                    boton_widget.setFont(textonormal)
+                    boton_widget.setFont(negrita)
                     boton_id = self.id_counter
                     self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
                     self.id_counter += 1
@@ -617,7 +648,7 @@ class BotonInteractivo: # Clase para crear botones
                     )
                 else: # Botones interactivos con propiedades de la fuente
                     boton_widget = QPushButton(f"{nombre}: {valor}") 
-                    boton_widget.setFont(textonormal)
+                    boton_widget.setFont(negrita)
                     boton_id = self.id_counter
                     self.ventana.botones_dict[boton_id] = (boton_widget, fuente, nombre)
                     self.id_counter += 1
@@ -625,6 +656,7 @@ class BotonInteractivo: # Clase para crear botones
                         lambda _, bid=boton_id: self.interactuar(bid)
                     )
                 listabotones.append(boton_widget)
+        
         for nombre, valor in listavariables.items(): # Botones de variables universales
             boton_id = self.id_counter
             boton_widget = QPushButton(f"{nombre}: {valor}")
@@ -636,6 +668,8 @@ class BotonInteractivo: # Clase para crear botones
             lambda _, bid=boton_id: self.interactuar(bid)
             )
         return listabotones
+    
+
     def interactuar(self, boton_id):
         if self.ventana.boton_seleccionado_id is not None: # Poner en negrita el color del botón seleccionado
             boton_anterior, _, _ = self.ventana.botones_dict[self.ventana.boton_seleccionado_id]
@@ -647,6 +681,8 @@ class BotonInteractivo: # Clase para crear botones
             print(f"Seleccionado botón {boton_id}, {atributo} de {fuente.nombre}")
         else:
             print(f"Seleccionado boton {boton_id}, variable universal.")
+
+# ------------------------------EJECUTAR---------------------------------- #
 
 def excepthook(exc_type, exc_value, exc_tb): # Error en la consola
     traceback.print_exception(exc_type, exc_value, exc_tb)
