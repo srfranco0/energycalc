@@ -3,7 +3,6 @@ import sys
 import traceback
 import matplotlib.pyplot as plt
 import pygame
-import numpy as np
 pygame.init()
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as VistaGrafico
 
@@ -16,31 +15,35 @@ from PyQt5.QtGui import QFont, QTextCursor
 # Variables universales: 
 
 ingorigen = 0 # Ingresos, cambiar para tener una inversión inicial
-amortizacion = 20 # Años de amortización de la central
+beneficiosestandar= 200 # Beneficio estándar en Euro/MWh
 potenciaCentral = 500 # Potencia ÚTIL de la central en MW
 potenciaTermica = 1000 # Potencia solar en W/m^2
-caudalagua = 100 # Caudal de agua en m^3/s
+caudalagua = 500 # Caudal total de agua en m^3/s
 densidadagua = 997 # kg/m^3
 c = 2.99792*(10**8) # Velocidad de la luz
 
 # Conversión
 conversion_segundos_por_año = 365.25 * 24 * 3600
-conversion_kwh_por_mj = 3.6 
+conversion_horas_por_año = 365.25 * 24
+conversion_mj_por_kwh = 3.6 
 conversion_kg_por_tonelada = 1000
+conversion_euro_por_Meuro = 10**6
 
 class FuenteEnergia:
-    def __init__(self, nombre, tconst, toperativo, emisiones, cconst, beneficio, rendimiento, factor):
+    def __init__(self, nombre, tconst, toperativo, emisiones, cconst, beneficio, rendimiento, factor, costoneto):
         # Atributos
         self.nombre = nombre
         self.tconst = tconst # años de construcción
         self.toperativo = toperativo # años de operación
-        self.cconst = cconst # Euros por año de construcción por MW (negativo, ya que es pérdida)
+        self.cconst = cconst # Millones de euros por año de construcción por MW (negativo, ya que es pérdida)
 
         self.potencia = potenciaCentral # Potencia de la central en MW
-        self.beneficio = beneficio # Euro/MWh por año en operación
+        self.beneficio = beneficio # Euro/kWh por año en operación
         self.emisiones = emisiones # kg de CO2 por MJ
         self.rendimiento = rendimiento # Rendimiento de la fuente (0-1)
         self.factor = factor # Factor de carga (0-1)
+
+        self.costoneto = costoneto # Costo de operación en Euro/MWh
 
         # Listas vacías para almacenar y graficar
         self.ling = [] # Lista de valores de ingreso
@@ -51,42 +54,47 @@ class FuenteEnergia:
 # Funciones de la clase FuenteEnergia.
 
     # Función LCOE 
-    def lcoe(self):
-        lcoe = (self.cconst * self.tconst + self.beneficio * self.toperativo) / (self.tconst + self.toperativo)                               
-                            # Ingreso neto (ingresos menos gastos)                      # Tiempo total
+    def lcoe(self): # Euro/MWh
+        energia = (self.potencia * self.toperativo * conversion_horas_por_año * self.rendimiento * self.factor) # MWh
+
+        gastosconst = (abs(self.cconst) * self.tconst * self.potencia * conversion_euro_por_Meuro) # Euro
+        gastosop = (self.costoneto * energia) # Euro
+
+        lcoe = ((gastosconst + gastosop) / energia) # Euro/MWh
 
         return round(lcoe, 5)
     
-    # Función de ploteo de gráficos
+    # Función de un gráfico de ingresos
     def ingresos(self):
         ing = ingorigen  # Inicializar la variable de ingresos
         self.ling = []  # Limpiar lista de ingresos
         self.lt = []    # Limpiar lista de tiempos
 
-        for t in range(0, self.tconst + self.toperativo):
+        for t in range(0, self.tconst + self.toperativo, 1):
             if t < self.tconst:
-                ing += self.cconst * self.potencia * self.rendimiento**-1 # Pérdida de construcción (dividir por el rendimiento porque es consumida)
+                ing += self.cconst * self.potencia
             elif t == self.tconst:
-                ing += self.cconst * self.potencia * self.rendimiento**-1
-                plt.text(t, ing, str("%.2f" % ing) + " €", va = "bottom", ha = "center", fontstyle = "italic") # Texto de pérdida máxima
+                ing += self.cconst * self.potencia
+                # plt.text(t, ing, str("%.2f" % ing) + " M€", va = "bottom", ha = "center", fontstyle = "italic") # Texto de pérdida máxima, removido por claridad.
             else: 
-                ing += self.beneficio * self.potencia
+                ing += self.beneficio * self.potencia * conversion_horas_por_año * self.rendimiento * self.factor * conversion_euro_por_Meuro**-1
+
+            # Almacenar en listas
             self.ling.append(ing)
             self.lt.append(t)
 
-        plt.text(self.lt[-1], self.ling[-1], f"{self.ling[-1]} €", va="bottom", ha="center", fontstyle="italic") # Texto de beneficio máximo
+        plt.text(self.lt[-1], self.ling[-1], f"{"%.2f" % self.ling[-1]} M€", va="bottom", ha="center", fontstyle="italic") # Texto de beneficio máximo
         plt.xlabel('Años')
         plt.ylabel('Ingresos acumulados (Mill. Euro)')
         plt.title('Ingresos acumulados de las centrales')
         plt.grid()
         plt.xlim(0, max(f.tconst + f.toperativo for f in listafuentes) + 1)
-
         return plt.plot(self.lt, self.ling, label=self.nombre)
-    
+
     # Función de cálculo de emisiones totales.
 
     def emisionestotales(self):
-        return str(self.emisiones * potenciaCentral * self.toperativo * conversion_segundos_por_año * conversion_kg_por_tonelada**-1 * 1000**-1) + " mil T CO2"
+        return "%.2f" % (self.emisiones * potenciaCentral * self.toperativo * conversion_segundos_por_año * conversion_kg_por_tonelada**-1 * conversion_mj_por_kwh * 10**-6)
      
 # Funciones de ploteo comparativo.
 
@@ -94,7 +102,6 @@ class FuenteEnergia:
 def plotemisiones():
     plt.clf()
     for fuente in listafuentes:
-
         if all(
             getattr(fuente, attr) is not None
             for attr in ["nombre", "tconst", "toperativo", "cconst", "beneficio", "emisiones"]
@@ -105,7 +112,7 @@ def plotemisiones():
             plt.text(
             fuente.nombre,
             fuente.emisiones + 0.1,
-            f"Total: {str(fuente.emisionestotales())}" ,
+            f"Total: {fuente.emisionestotales()} millones de T CO2", 
             ha="center", va="bottom",
             fontweight = "bold",
             color = "black",
@@ -157,7 +164,6 @@ def plotlcoe():
  
     # Ingresos
 def plotingresos():
-
     plt.clf()
     for fuente in listafuentes:
         fuente.ingresos()
@@ -172,88 +178,114 @@ def plotingresos():
 nuclear = FuenteEnergia(
     nombre='Nuclear',
     tconst = 7, 
-    cconst = -2,  
-    beneficio = 0.4,
+    cconst = -1.5,
+
     toperativo= 70, 
-    emisiones = 0.025,
+    emisiones = 0.09,
+
     rendimiento=0.35,
-    factor=0.9
+    factor=0.9,
+
+    costoneto = 70,
+    beneficio = beneficiosestandar
 )
 
 fotovoltaica = FuenteEnergia(
     nombre='Fotovoltaica',
     tconst = 2,
     cconst = -0.8,
-    beneficio = 0.065,
+
     toperativo = 45,
     emisiones = 0.18,
+
     rendimiento= 0.2,
-    factor=0.2
+    factor=0.25,
+
+    costoneto = 40,
+    beneficio = beneficiosestandar
 )
 
 termica = FuenteEnergia(
     nombre='Térmica',
     tconst = 3,
     cconst = -0.7,
-    beneficio = 0.078,
+
     toperativo = 30,
     emisiones = 3.24,
+
     rendimiento= 0.4,
-    factor=0.5
-)
+    factor=0.5,
+    
+    costoneto = 74,
+    beneficio= beneficiosestandar
+    )
 
 hidro = FuenteEnergia(
     nombre='Hidroeléctrica',
     tconst = 7,
     cconst = -1,
-    beneficio = 0.0064,
+
     toperativo = 27,
     emisiones = 0.022,
+
     rendimiento=0.9,
-    factor=0.5
+    factor=0.5,
+
+    costoneto = 60,
+    beneficio = beneficiosestandar
 )
 eolica = FuenteEnergia(
     nombre='Eólica',
-    tconst = 9,
-    cconst = -0.95,
-    beneficio = 0.0057,
+    tconst = 8,
+    cconst = -0.65,
+
     toperativo = 30,
     emisiones = 0.054,
+
     rendimiento=0.45,
-    factor=0.3
+    factor=0.35,
+
+    costoneto = 38,
+    beneficio = beneficiosestandar
+
 )
 
 listafuentes = [nuclear, fotovoltaica, termica, hidro, eolica]
 listagraficos = {"Ingresos": plotingresos, "LCOE": plotlcoe, "Emisiones": plotemisiones}
+
+for f in listafuentes:
+    f.beneficio = beneficiosestandar - f.costoneto
 
 for fuente in listafuentes:
     fuente.diccionarioprop = {
                             "Nombre de la fuente": fuente.nombre, 
                             "Tiempo de construcción (años)": fuente.tconst,
                             "Tiempo operativo (años)": fuente.toperativo, 
-                            "Costo de construcción (Euros, en negativo)": fuente.cconst,
-                            "Beneficio anual (Mill. Euros)":fuente.beneficio,
+                            "Costo de construcción (MEuro/MW)": fuente.cconst,
+                            "Beneficio (euro/MWh)":fuente.beneficio,
                             "Emisiones anuales (kg CO2)":fuente.emisiones,
                             "Rendimiento (0-1)": fuente.rendimiento,
                             "Potencia útil (MW)": fuente.potencia,
-                            "Factor de carga": fuente.factor
+                            "Factor de carga": fuente.factor,
+                            "Costo operativo (Euro/MWh)": fuente.costoneto
                             }
     
 # Variables de cálculo
-areaFoto = potenciaCentral*(10**6)/ potenciaTermica
+areaFoto = (potenciaCentral*(10**6))/(potenciaTermica * fotovoltaica.rendimiento)
 resnucleares = round((potenciaCentral * 10**6 * 365.25 * 24 * 3600)/(nuclear.rendimiento * c ** 2), 5) # E = mc^2 -> m = E/c^2 (la energía es la consumida). kg por año de residuos
 resnuctot = round(resnucleares * nuclear.toperativo, 5)
-altembalse = (potenciaCentral/10**6)/(9.81*hidro.rendimiento*caudalagua) # P = rendimiento * densidadagua * g * h * caudal -> altura = P / (rendimiento * densidadagua * g * caudal)
+altembalse = f"{"%.2f" % ((potenciaCentral*10**6)/(9.81*hidro.rendimiento*caudalagua*densidadagua))}" # P = rendimiento * densidadagua * g * h * caudal -> altura = P / (rendimiento * densidadagua * g * caudal)
 
 listavariables = {
     "Ingresos iniciales (Mill. Euro)": ingorigen,
     "Potencia de las centrales (MW)": potenciaCentral,
     "Potencia térmica del sol (W)": potenciaTermica,
     "Caudal de agua (m^3/s)": caudalagua,
-    "Densidad del agua (kg/m^3)": densidadagua,
     "Residuos nucleares anuales (kg)": resnucleares,
     "Residuos nucleares totales (kg)": resnuctot,
     "Área de placas fotovoltaicas (m^2)": areaFoto,
+    "Beneficio estándar (Euro/MWh)": beneficiosestandar,
+    "Altura del embalse (m)": altembalse
 }
 #-----------------------------------------------------------------INTERFAZ-------------------------------------------------------------#
 
@@ -299,7 +331,6 @@ class Ventana(QMainWindow): #Ventana principal
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Calculadora Energética | El pasado, presente y futuro de la energía nuclear. Hecho por Franco Baldassarre.") 
-        # self.setWindowIcon(QtGui.QIcon()) !!ICONO!!
         self.boton_seleccionado_id = None
         self.botones_dict = {} # Diccionario botones
         self.interfaz()
@@ -350,7 +381,7 @@ class Ventana(QMainWindow): #Ventana principal
                         except:
                             pass
                         
-            graficofuncion()  # plot
+            graficofuncion()  # ploteo
             self.grafico.draw()
             print(f"Se ha cambiado el gráfico a {desplegableder.currentText()}.")
 
@@ -411,16 +442,16 @@ class Ventana(QMainWindow): #Ventana principal
                 tconst = int(tconst_text)
 
                 # Costo de construcción
-                cconst_text, ok2 = QInputDialog.getText(self, "Nueva fuente", "Inserte costo de construcción de la fuente (Euro/MW, en negativo):")
+                cconst_text, ok2 = QInputDialog.getText(self, "Nueva fuente", "Inserte costo de construcción de la fuente (MEuro/MW, en negativo):")
                 if not ok2 or not cconst_text:
                     return
                 cconst = float(cconst_text)
 
-                # Beneficio anual
-                beneficio_text, ok3 = QInputDialog.getText(self, "Nueva fuente", "Inserte beneficio anual (Euro/MW):")
-                if not ok3 or not beneficio_text:
+                # Costo operativo
+                costoneto_text, ok3 = QInputDialog.getText(self, "Nueva fuente", "Inserte costo neto de mantenimiento Euro/MWh:")
+                if not ok3 or not costoneto_text:
                     return
-                beneficio = float(beneficio_text)
+                costoneto = float(costoneto_text)
 
                 # Tiempo operativo
                 toperativo_text, ok4 = QInputDialog.getText(self, "Nueva fuente", "Inserte tiempo operativo (años):")
@@ -451,6 +482,7 @@ class Ventana(QMainWindow): #Ventana principal
                 if factor >= 1:
                     print("El factor de carga debe ser menor que 1.")
                     return
+            
                 
             except ValueError:
                 print("Introduzca valores numéricos válidos.")
@@ -463,22 +495,24 @@ class Ventana(QMainWindow): #Ventana principal
                 nombre=texto,
                 tconst=tconst,
                 cconst=cconst,
-                beneficio=beneficio,
+                beneficio=beneficiosestandar - costoneto,
                 toperativo=toperativo,
                 emisiones=emisiones,
                 rendimiento=rendimiento,
-                factor=factor
+                factor=factor,
+                costoneto=costoneto
             )
 
             nueva_fuente.diccionarioprop = {
                 "Nombre de la fuente": nueva_fuente.nombre,
                 "Tiempo de construcción (años)": nueva_fuente.tconst,
                 "Tiempo operativo (años)": nueva_fuente.toperativo,
-                "Costo de construcción (Euros, en negativo)": nueva_fuente.cconst,
-                "Beneficio anual (Mill. Euros)": nueva_fuente.beneficio,
+                "Costo de construcción (MEuro/MW)": nueva_fuente.cconst,
+                "Beneficio (euro/MWh)": nueva_fuente.beneficio,
                 "Emisiones anuales (kg CO2)": nueva_fuente.emisiones,
                 "Rendimiento (0-1)": nueva_fuente.rendimiento,
-                "Factor de carga": nueva_fuente.factor
+                "Factor de carga": nueva_fuente.factor,
+                "Costo operativo (Euro/MWh)": nueva_fuente.costoneto
             }
             # Botones nueva fuente
 
@@ -540,7 +574,7 @@ class Ventana(QMainWindow): #Ventana principal
 
     # FUNCIÓN ENVIAR
     def enviar(self):
-        global ingorigen, potenciaCentral, potenciaTermica, caudalagua, densidadagua, resnucleares, resnuctot, areaFoto
+        global ingorigen, potenciaCentral, potenciaTermica, caudalagua, densidadagua, resnucleares, resnuctot, areaFoto, beneficiosestandar
 
         if self.boton_seleccionado_id is None:
             print("Seleccione primero un atributo pulsando su botón.")
@@ -557,16 +591,12 @@ class Ventana(QMainWindow): #Ventana principal
             if etiqueta in ["Tiempo de construcción (años)", "Tiempo operativo (años)"]:
                 valor = int(valor_texto)
             else:
-                valor = int(valor_texto)
+                valor = float(valor_texto)
         except ValueError:
             print("Introduzca un valor numérico válido.")
             return
-
-        if etiqueta != "Rendimiento" or "Factor de carga" and abs(valor) < 1:
-            print("Seleccione un valor mayor a 1.")
-            return
             
-        if etiqueta == "Rendimiento" or "Factor de carga" and not (0 < valor < 1):
+        if etiqueta in ["Rendimiento (0-1)", "Factor de carga"] and not (0 < valor < 1):
             print("El valor debe estar entre 0 y 1.")
             return
 
@@ -576,10 +606,18 @@ class Ventana(QMainWindow): #Ventana principal
             })
             print(f"Se actualizó {etiqueta} de {fuente.nombre} a {valor}")
             print(valor, etiqueta, fuente.diccionarioprop)
-            if etiqueta == "Costo de construcción (Euros, en negativo)":
+            if etiqueta == "Costo de construcción (MEuro/MW)":
                 fuente.cconst = valor
-            elif etiqueta == "Beneficio anual (Mill. Euros)":
+            elif etiqueta == "Beneficio (euro/MWh)":
                 fuente.beneficio = valor
+                fuente.costoneto = beneficiosestandar - valor
+
+                fuente.diccionarioprop.update({
+                etiqueta: valor
+            })
+                fuente.diccionarioprop.update({
+                "Costo operativo (Euro/MWh)": fuente.costoneto})
+
             elif etiqueta == "Emisiones anuales (kg CO2)":
                 fuente.emisiones = valor
             elif etiqueta == "Rendimiento (0-1)":
@@ -592,24 +630,81 @@ class Ventana(QMainWindow): #Ventana principal
                 fuente.potencia = valor
             elif etiqueta == "Factor de carga":
                 fuente.factor = valor
+            elif etiqueta == "Costo operativo (Euro/MWh)":
+                fuente.costoneto = valor
+                fuente.beneficio = beneficiosestandar - valor
+
+                fuente.diccionarioprop.update({
+                etiqueta: valor
+            })
+                fuente.diccionarioprop.update({
+                "Beneficio (euro/MWh)": fuente.beneficio})
+
 
         else:
-            if etiqueta == "Ingresos iniciales (Mill. Euros)":
+            if etiqueta == "Ingresos iniciales (Mill. Euro)":
                 ingorigen = valor
             elif etiqueta == "Potencia de las centrales (MW)":
                 potenciaCentral = valor
+                for f in listafuentes:
+                    f.potencia = potenciaCentral
+                    self.diccionarioprop.update({
+                        "Potencia útil (MW)": potenciaCentral
+                    })
+
             elif etiqueta == "Potencia térmica del sol (W)":
                 potenciaTermica = valor
+                areaFoto = potenciaCentral*(10**6)/ potenciaTermica
+                listavariables.update({
+                    etiqueta: potenciaTermica})
+                listavariables.update({
+                    "Área de placas fotovoltaicas (m^2)": areaFoto})
+
             elif etiqueta == "Caudal de agua (m^3/s)":
                 caudalagua = valor
-            elif etiqueta == "Densidad del agua (kg/m^3)":
-                densidadagua = valor
+                altembalse = (potenciaCentral*10**6)/(9.81*hidro.rendimiento*caudalagua*densidadagua)
+                listavariables.update({
+                    etiqueta: caudalagua})
+                listavariables.update({
+                    "Altura del embalse (m)": altembalse})              
+
+            elif etiqueta == "Altura del embalse (m)":
+                altembalse = valor
+                caudalagua = (potenciaCentral*10**6)/(9.81*hidro.rendimiento*altembalse*densidadagua)
+                listavariables.update({
+                    etiqueta: altembalse})       
+                listavariables.update({
+                    "Caudal de agua (m^3/s)": caudalagua})
+                                        
             elif etiqueta == "Residuos nucleares anuales (kg)":
                 resnucleares = valor
+                resnuctot = round(resnucleares * nuclear.toperativo, 5)
+                listavariables.update({
+                    etiqueta: resnucleares})
+                listavariables.update({
+                    "Residuos nucleares totales(kg)": resnuctot})
+                                
             elif etiqueta == "Residuos nucleares totales (kg)":
                 resnuctot = valor
+
             elif etiqueta == "Área de placas fotovoltaicas (m^2)":
                 areaFoto = valor
+                potenciaTermica = potenciaCentral*(10**6)/ areaFoto
+                listavariables.update({
+                    etiqueta: potenciaTermica})
+
+            elif etiqueta == "Beneficio estándar (Euro/MWh)":
+                beneficiosestandar = valor
+                for f in listafuentes:
+                    f.beneficio = beneficiosestandar - f.costoneto
+                    listavariables.update({
+                        etiqueta: valor
+                    })
+
+                    f.diccionarioprop.update({
+                        "Beneficio (euro/MWh)": f.beneficio
+                    })          
+
             else:
                 print(f"Etiqueta {etiqueta} no reconocida, no se actualizó ninguna variable global.")
                 return
@@ -618,6 +713,14 @@ class Ventana(QMainWindow): #Ventana principal
 
         self.textinput.clear()
         boton.setText(f"{etiqueta}: {valor}")
+
+# script con el efecto de cambiobotones(). actualiza los valores de todas las variables
+        try:
+            for cb in self.findChildren(QComboBox):
+                if cb.count() and cb.itemText(0).startswith("Seleccione o cree"):
+                    cb.currentIndexChanged.emit(cb.currentIndex())
+        except Exception:
+            pass
 
 
 # ------------------------------BOTONINTERACTIVO---------------------------------- #
@@ -677,7 +780,7 @@ class BotonInteractivo: # Clase para crear botones
         self.ventana.boton_seleccionado_id = boton_id
         boton, fuente, atributo = self.ventana.botones_dict[boton_id]
         boton.setFont(negrita)
-        if boton_id < 5:
+        if boton_id < len(self.ventana.botones_dict) - len(listavariables):
             print(f"Seleccionado botón {boton_id}, {atributo} de {fuente.nombre}")
         else:
             print(f"Seleccionado boton {boton_id}, variable universal.")
