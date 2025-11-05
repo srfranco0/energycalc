@@ -648,9 +648,11 @@ class Ventana(QMainWindow): #Ventana principal
                 potenciaCentral = valor
                 for f in listafuentes:
                     f.potencia = potenciaCentral
-                    self.diccionarioprop.update({
+                    f.diccionarioprop.update({
                         "Potencia útil (MW)": potenciaCentral
                     })
+                listavariables.update({
+                    etiqueta: potenciaCentral})
 
             elif etiqueta == "Potencia térmica del sol (W)":
                 potenciaTermica = valor
@@ -800,7 +802,7 @@ def inicio():
     print("Resolución actual:", resw, "por", resh)
     print("Aplicación inicializada con datos predeterminados de fuentes:")
     for fuente in listafuentes:
-        print(f"{fuente.nombre}, con tiempo de construcción {fuente.tconst}, tiempo operativo {fuente.toperativo}, costo de construcción {fuente.cconst}, beneficio de {fuente.beneficio} y emisiones de {fuente.emisiones}.")
+        print(f"--- {fuente.nombre}, con tiempo de construcción {fuente.tconst}, tiempo operativo {fuente.toperativo}, costo de construcción {fuente.cconst}, beneficio de {fuente.beneficio} y emisiones de {fuente.emisiones}.")
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
